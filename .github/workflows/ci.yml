@@ -1,4 +1,4 @@
-name: Moon CI
+name: build
 
 on: [push]
 
@@ -6,6 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout repo
     - uses: actions/checkout@v1
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
