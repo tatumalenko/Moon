@@ -5,12 +5,12 @@
 
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
-    <RootNamespace>Moon.Lexer.Tests</RootNamespace>
+    <RootNamespace>Moon.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="Tests.fs" />
+    <Compile Include="Lexer.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Moon\Moon.fsproj" />
+    <ProjectReference Include="..\Moon\Moon.fsproj" />
   </ItemGroup>
 
 </Project>
