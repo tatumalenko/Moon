@@ -347,8 +347,7 @@ let tokenizeStrings (stream: string list): Outcome list =
     results
 
 let tokenizeFile (filePath: string): Outcome list =
-    let stream = Utils.read filePath
-    tokenizeStrings stream
+    tokenizeStrings (Utils.read filePath)
 
 type InputType =
     | FilePath of string

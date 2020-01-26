@@ -18,8 +18,7 @@ let ``Given TokenType and invalid lexeme, should not match`` tokenType lexeme =
 
 [<Fact>]
 let ``Given file path with positive grading, contents properly tokenized``() =
-    let text = Utils.read (Utils.makePath "resources/lexer/in/positivegrading.src")
-    let outcomes = tokenize (Text text)
+    let outcomes = tokenize (FilePath (Utils.makePath "resources/lexer/in/positivegrading.src")) 
     writeTokens outcomes (Some (Utils.makePath "resources/lexer/out/positivegrading.outlextokens"))
     writeErrors outcomes (Some (Utils.makePath "resources/lexer/out/positivegrading.outlexerrors"))
     
@@ -34,8 +33,7 @@ let ``Given file path with positive grading, contents properly tokenized``() =
     
 [<Fact>]
 let ``Given file path with negative grading, contents properly tokenized with errors``() =
-    let text = Utils.read (Utils.makePath "resources/lexer/in/negativegrading.src")
-    let outcomes = tokenize (Text text)
+    let outcomes = tokenize (FilePath (Utils.makePath "resources/lexer/in/negativegrading.src"))
     writeTokens outcomes (Some (Utils.makePath "resources/lexer/out/negativegrading.outlextokens"))
     writeErrors outcomes (Some (Utils.makePath "resources/lexer/out/negativegrading.outlexerrors"))
     
