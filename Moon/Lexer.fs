@@ -208,7 +208,7 @@ type Error =
     { lexeme: string
       line: int
       column: int }
-    member m.ToString() = "[LexicalError, " + m.lexeme + ", " + m.line.ToString() + "]"
+    override m.ToString() = "[LexicalError, " + m.lexeme + ", " + m.line.ToString() + "]"
     member m.display = m.ToString()
     member m.displayDetailed =
         "[Lexical Error (line " + m.line.ToString() + ", column " + m.column.ToString() + "): \"" + m.lexeme + "\"]"
@@ -219,7 +219,7 @@ type TokenResult =
       lexeme: string
       line: int
       column: int }
-    member m.ToString() = "[" + m.token.ToString() + ", " + m.lexeme + ", " + m.line.ToString() + "]"
+    override m.ToString() = "[" + m.token.ToString() + ", " + m.lexeme + ", " + m.line.ToString() + "]"
     member m.display = m.ToString()
 
 type Outcome =
