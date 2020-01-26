@@ -4,7 +4,6 @@ open System
 open Moon
 open Moon.Lexer
 open Argu
-open Argu
 
 type LexerArgs =
     | Path of string

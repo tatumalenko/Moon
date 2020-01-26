@@ -46,6 +46,21 @@ let ``Given file path with negative grading, contents properly tokenized with er
     actualTokens |> should matchList expectedTokens
     actualErrors |> should matchList expectedErrors
 
+[<Fact>]
+let ``Given file path with various test cases, contents properly tokenized with errors``() =
+    let outcomes = tokenize (FilePath (Utils.makePath "resources/lexer/in/testcase1.src"))
+    writeTokens outcomes (Some (Utils.makePath "resources/lexer/out/testcase1.outlextokens"))
+    writeErrors outcomes (Some (Utils.makePath "resources/lexer/out/testcase1.outlexerrors"))
+    
+    let actualTokens = Utils.read (Utils.makePath "resources/lexer/out/testcase1.outlextokens")
+    let actualErrors = Utils.read (Utils.makePath "resources/lexer/out/testcase1.outlexerrors")
+    
+    let expectedTokens = Utils.read (Utils.makePath "resources/lexer/expected/testcase1.outlextokens")
+    let expectedErrors = Utils.read (Utils.makePath "resources/lexer/expected/testcase1.outlexerrors")
+    
+    actualTokens |> should matchList expectedTokens
+    actualErrors |> should matchList expectedErrors
+    
 let validCases =
     Utils.asTestArguments
         [ [ Letter; "a" ]

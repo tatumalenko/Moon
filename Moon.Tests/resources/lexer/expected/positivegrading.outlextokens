@@ -9,6 +9,8 @@
 [Period, ., 9] [Write, write, 9] [Local, local, 9]
 [Colon, :, 10] [Return, return, 10]
 [ColonColon, ::, 11] [Main, main, 11]
+[IntegerLiteral, 0, 13]
+[IntegerLiteral, 1, 14]
 [IntegerLiteral, 10, 15]
 [IntegerLiteral, 12, 16]
 [IntegerLiteral, 123, 17]
