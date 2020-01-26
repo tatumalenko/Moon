@@ -16,3 +16,10 @@ module Utils =
             Directory.CreateDirectory (Path.GetDirectoryName fullPath) |> ignore
 
         File.WriteAllText(fullPath, text)
+        
+    module Path =
+        let join partialPath1 partialPath2 =
+            Path.Combine(partialPath1, partialPath2)
+            
+        let fileName (path: string) =
+            Path.GetFileName path
