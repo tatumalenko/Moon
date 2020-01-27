@@ -7,12 +7,16 @@ Moon
 
 > A Moon compiler written in F# using the .NET Core framework.
 
+# Assignments
+## Assignment 1
+You will find the assignment document located in `doc/a1/a1_40055122.pdf`.
+
 # Install
 **Requirements:** Depending on the approach used to execute the program, either the .NET Core 3.1.1 SDK or Docker is required to run the program. The following sections outline how to use either approaches.
 
 # Use
 ## Run
-There are three ways to run the command line program.
+There are two ways to run the command line program.
 
 ### 1. Using Docker (Recommended):
 ```sh
@@ -25,7 +29,7 @@ OR by using the Make rule:
 $ make dockerrun path="~/Desktop/input.src"
 ```
 
-This will pull the latest image hosted on [Docker Hub](https://hub.docker.com/r/tatumalenko/moon/tags) and immediately run it using the contents of the file from the path supplied. This is the easiest way to get the program running without needing to install any platform specific SDKs and whatnot.
+This will pull the latest image hosted on [Docker Hub](https://hub.docker.com/r/tatumalenko/moon/tags) and immediately run it using the contents of the file from the path supplied. This is the easiest way to get the program running without needing to install any platform specific SDKs and whatnot. The only caveat with this usage is because Docker uses virtualized containers, generating files into the host's filesystem is quite tricky and instead I sought to simply log the resulting outputs for both `.outlextokens` and `.outlexerrors` to the console.
 
 ### 2. Using `dotnet core` SDK:
 

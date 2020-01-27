@@ -75,7 +75,7 @@ let main argv =
         printfn ""
         printfn "OUTLEXERRORS:"
         printfn "%s"
-            (lexicalErrorsFromOutcomes outcomes
+            (lexicalErrors outcomes
              |> List.map (fun e -> e.displayDetailed)
              |> List.fold (fun state e ->
                  if state = "" then e

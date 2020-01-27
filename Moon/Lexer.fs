@@ -395,7 +395,7 @@ let tokenize (input: InputType): Outcome list =
     | FilePath path -> tokenizeFile path
     | Text stream -> tokenizeStrings stream
 
-let lexicalErrorsFromOutcomes (outcomes: Outcome list): Error list =
+let lexicalErrors (outcomes: Outcome list): Error list =
     let errorChooser =
         fun e ->
             match e with
@@ -436,7 +436,7 @@ let writeTokens (outcomes: Outcome list) (path: string) =
 
 let writeErrors (outcomes: Outcome list) (path: string) =
     Utils.write
-        (lexicalErrorsFromOutcomes outcomes
+        (lexicalErrors outcomes
          |> List.map (fun e -> e.displayDetailed)
          |> List.fold (fun state e ->
              if state = "" then e
