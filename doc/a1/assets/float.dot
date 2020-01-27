@@ -1,0 +1,74 @@
+digraph finite_state_machine {
+    rankdir=LR
+    size="8,5"
+
+    node [shape = point ] qi
+    node [shape = circle, label="1"] q1
+    node [shape = circle, label="2"] q2
+    node [shape = circle, label="3"] q3
+    node [shape = circle, label="4"] q4
+    node [shape = circle, label="5"] q5
+    node [shape = circle, label="6"] q6
+    node [shape = circle, label="7"] q7
+    node [shape = circle, label="8"] q8
+    node [shape = circle, label="9"] q9
+    node [shape = circle, label="10"] q10
+    node [shape = circle, label="11"] q11
+    node [shape = circle, label="12"] q12
+    node [shape = circle, label="13"] q13
+    node [shape = doublecircle, label="14"] q14
+    node [shape = circle, label="15"] q15
+    node [shape = circle, label="16"] q16
+    node [shape = circle, label="17"] q17
+    node [shape = circle, label="18"] q18
+    node [shape = circle, label="19"] q19
+    node [shape = circle, label="20"] q20
+    node [shape = circle, label="21"] q21
+    node [shape = circle, label="22"] q22
+    node [shape = circle, label="23"] q23
+    node [shape = circle, label="24"] q24
+    node [shape = circle, label="25"] q25
+    node [shape = circle, label="26"] q26
+    node [shape = circle, label="27"] q27
+
+    qi -> q1
+    q1 -> q2 [label = "ε"]
+    q1 -> q3 [label = "ε"]
+    q2 -> q4 [label = "0"]
+    q4 -> q9 [label = "ε"]
+    q3 -> q5 [label = "[1-9]"]
+    q5 -> q6 [label = "ε"]
+    q6 -> q7 [label = "[0-9]"]
+    q7 -> q8 [label = "ε"]
+    q7 -> q6 [label = "ε"]
+    q5 -> q8 [label = "ε"]
+    q8 -> q9 [label = "ε"]
+    q9 -> q10 [label = "ε"]
+    q9 -> q11 [label = "ε"]
+    q10 -> q12 [label = "."]
+    q12 -> q13 [label = "0"]
+    q13 -> q14 [label = "ε"]
+    q11 -> q15 [label = "."]
+    q15 -> q16 [label = "ε"]
+    q16 -> q17 [label = "[0-9]"]
+    q17 -> q18 [label = "ε"]
+    q17 -> q16 [label = "ε"]
+    q15 -> q18 [label = "ε"]
+    q22 -> q14 [label = "ε"]
+    q22 -> q19 [label = "e"]
+    q19 -> q20 [label = "ε"]
+    q20 -> q21 [label = "[+\-]"]
+    q21 -> q23 [label = "ε"]
+    q23 -> q25 [label = "ε"]
+    q24 -> q26 [label = "0"]
+    q26 -> q14 [label = "ε"]
+    q25 -> q24 [label = "ε"]
+    q25 -> q27 [label = "[1-9]"]
+    q27 -> q28 [label = "ε"]
+    q28 -> q29 [label = "[0-9]"]
+    q29 -> q30 [label = "ε"]
+    q29 -> q28 [label = "ε"]
+    q27 -> q30 [label = "ε"]
+    q30 -> q14 [label = "ε"]
+    q18 -> q22 [label = "[1-9]"]
+}

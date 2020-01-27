@@ -1,0 +1,28 @@
+digraph finite_state_machine {
+    rankdir=LR
+    size="8,5"
+
+    node [shape = point ] qi
+    node [shape = circle, label="1"] q1
+    node [shape = circle, label="2"] q2
+    node [shape = circle, label="3"] q3
+    node [shape = circle, label="4"] q4
+    node [shape = circle, label="5"] q5
+    node [shape = circle, label="6"] q6
+    node [shape = circle, label="7"] q7
+    node [shape = circle, label="8"] q8
+    node [shape = doublecircle, label="9"] q9
+
+    qi -> q1
+    q1 -> q2 [label = "ε"]
+    q1 -> q3 [label = "ε"]
+    q2 -> q4 [label = "0"]
+    q4 -> q9 [label = "ε"]
+    q3 -> q5 [label = "[1-9]"]
+    q5 -> q6 [label = "ε"]
+    q6 -> q7 [label = "[0-9]"]
+    q7 -> q8 [label = "ε"]
+    q7 -> q6 [label = "ε"]
+    q5 -> q8 [label = "ε"]
+    q8 -> q9 [label = "ε"]
+}

@@ -47,7 +47,7 @@ let ``Given file path with negative grading, contents properly tokenized with er
     actualErrors |> should matchList expectedErrors
 
 [<Fact>]
-let ``Given file path with various test cases, contents properly tokenized with errors``() =
+let ``Given file path with various test cases (testcase1.src), contents properly tokenized with errors``() =
     let outcomes = tokenize (FilePath (Utils.makePath "resources/lexer/in/testcase1.src"))
     writeTokens outcomes (Some (Utils.makePath "resources/lexer/out/testcase1.outlextokens"))
     writeErrors outcomes (Some (Utils.makePath "resources/lexer/out/testcase1.outlexerrors"))
@@ -57,6 +57,21 @@ let ``Given file path with various test cases, contents properly tokenized with 
     
     let expectedTokens = Utils.read (Utils.makePath "resources/lexer/expected/testcase1.outlextokens")
     let expectedErrors = Utils.read (Utils.makePath "resources/lexer/expected/testcase1.outlexerrors")
+    
+    actualTokens |> should matchList expectedTokens
+    actualErrors |> should matchList expectedErrors
+    
+[<Fact>]
+let ``Given file path with various test cases (testcase2.src), contents properly tokenized with errors``() =
+    let outcomes = tokenize (FilePath (Utils.makePath "resources/lexer/in/testcase2.src"))
+    writeTokens outcomes (Some (Utils.makePath "resources/lexer/out/testcase2.outlextokens"))
+    writeErrors outcomes (Some (Utils.makePath "resources/lexer/out/testcase2.outlexerrors"))
+    
+    let actualTokens = Utils.read (Utils.makePath "resources/lexer/out/testcase2.outlextokens")
+    let actualErrors = Utils.read (Utils.makePath "resources/lexer/out/testcase2.outlexerrors")
+    
+    let expectedTokens = Utils.read (Utils.makePath "resources/lexer/expected/testcase2.outlextokens")
+    let expectedErrors = Utils.read (Utils.makePath "resources/lexer/expected/testcase2.outlexerrors")
     
     actualTokens |> should matchList expectedTokens
     actualErrors |> should matchList expectedErrors

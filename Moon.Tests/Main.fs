@@ -26,7 +26,7 @@ let ``Given missing path cli argument for lex subcommand, the main function shou
            "--outdir"
            Utils.makePath "resources/lexer/out" |]
     |> ignore)
-    |> should (throwWithMessage "Missing command line argument --path") typeof<System.Exception> 
+    |> should (throwWithMessage "Missing command line argument --path") typeof<System.Exception>
 
 [<Fact>]
 let ``Given missing outdir cli argument for lex subcommand, the main function should raise error``() =
@@ -36,4 +36,13 @@ let ``Given missing outdir cli argument for lex subcommand, the main function sh
            "--path"
            Utils.makePath "resources/lexer/in/positivegrading.src" |]
     |> ignore)
-    |> should (throwWithMessage "Missing command line argument --outDir") typeof<System.Exception> 
+    |> should (throwWithMessage "Missing command line argument --outDir") typeof<System.Exception>
+
+[<Fact>]
+let ``Given no cli argument for lex subcommand, the main function should raise error``() =
+    (fun () -> Moon.Main.main [| |] |> ignore)
+    |> should (throwWithMessage "Missing subcommand argument") typeof<System.Exception>
+
+[<Fact>]
+let ``Given text cli argument for lex subcommand, the main function should raise error``() =
+    Moon.Main.main [| "lex"; "--text"; "123.014e-24" |] |> should equal 0

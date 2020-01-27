@@ -79,8 +79,7 @@ let rec asString (token: Token) =
     | IntegerLiteral -> "((" + asString Nonzero + asString Digit + "*)|0)"
     | Fraction -> "((\." + asString Digit + "*" + asString Nonzero + ")|\.0)"
     | PartialFloat ->
-        "((" + asString IntegerLiteral + ")(\.)((" + asString IntegerLiteral + ")*(" + asString Nonzero
-        + ")?)?(e(\+|-)?)?)"
+        "((" + asString IntegerLiteral + ")(\.)(" + asString Digit + "*" + ")(e(\+|-)?)?)"
     | FloatLiteral ->
         "((" + asString IntegerLiteral + ")(" + asString Fraction + ")(e(\+|-)?(" + asString IntegerLiteral + "))?)"
     | Alphanum -> "(" + asString Letter + "|" + asString Digit + "|_)"
