@@ -34,9 +34,8 @@ let main argv =
     let mutable outDir = ""
     let mutable text = ""
 
-    if Seq.length args = 0 then
-        failwith "Missing subcommand argument"
-        
+    if Seq.length args = 0 then failwith "Missing subcommand argument"
+
     let command =
         match args.[0] with
         | Lex lexer -> lexer
@@ -55,23 +54,31 @@ let main argv =
         if outDir = "" then
             Console.WriteLine(parser.PrintUsage())
             failwith "Missing command line argument --outDir"
-    
-    let outcomes = if text = "" then tokenize (FilePath inPath) else tokenize (InputType.Text (text.Split "\n" |> List.ofSeq))
-    
+
+    let outcomes =
+        if text = "" then
+            tokenize (FilePath inPath)
+        else
+            tokenize
+                (InputType.Text
+                    (text.Split "\n"
+                     |> List.ofSeq))
+
     if text = "" then
         let fileName = Utils.Path.fileName inPath
-        writeTokens outcomes (Some(Utils.Path.join outDir (fileName + ".outlextokens")))
-        writeErrors outcomes (Some(Utils.Path.join outDir (fileName + ".outlexerrors")))
+        writeTokens outcomes (Utils.Path.join outDir (fileName + ".outlextokens"))
+        writeErrors outcomes (Utils.Path.join outDir (fileName + ".outlexerrors"))
     else
         printfn ""
         printfn "OUTLEXTOKENS:"
         printfn "%s" (display outcomes)
         printfn ""
         printfn "OUTLEXERRORS:"
-        printfn "%s" (lexicalErrorsFromOutcomes outcomes
-         |> List.map (fun e -> e.displayDetailed)
-         |> List.fold (fun state e ->
-             if state = "" then e
-             else state + "\n" + e) "")
-    
+        printfn "%s"
+            (lexicalErrorsFromOutcomes outcomes
+             |> List.map (fun e -> e.displayDetailed)
+             |> List.fold (fun state e ->
+                 if state = "" then e
+                 else state + "\n" + e) "")
+
     0

@@ -40,9 +40,14 @@ let ``Given missing outdir cli argument for lex subcommand, the main function sh
 
 [<Fact>]
 let ``Given no cli argument for lex subcommand, the main function should raise error``() =
-    (fun () -> Moon.Main.main [| |] |> ignore)
+    (fun () -> Moon.Main.main [||] |> ignore)
     |> should (throwWithMessage "Missing subcommand argument") typeof<System.Exception>
 
 [<Fact>]
 let ``Given text cli argument for lex subcommand, the main function should raise error``() =
     Moon.Main.main [| "lex"; "--text"; "123.014e-24" |] |> should equal 0
+
+[<Fact>]
+let ``Given empty text cli argument for lex subcommand, the main function should raise error``() =
+    (fun () -> Moon.Main.main [| "lex"; "--text"; "" |] |> ignore)
+    |> should (throwWithMessage "Missing command line argument --path") typeof<System.Exception>

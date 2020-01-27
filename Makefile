@@ -29,6 +29,12 @@ dockerrm:
 dockerbuild:
 	docker build -t moon .
 
+dockertag:
+	docker tag moon tatumalenko/moon
+
+dockerpush:
+	docker push tatumalenko/moon
+
 dockerrun:
 	# Example: make dockerrun path="~/dev/personal/Moon/Moon.Tests/resources/lexer/in/testcase2.src"
 	docker run --rm tatumalenko/moon lex --text "$$(cat $(path))"

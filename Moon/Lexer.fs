@@ -200,13 +200,8 @@ let precedenceHighToLowTokens =
       Alphanum ]
 
 let partialTokens =
-    [ Letter
-      Nonzero
-      Digit
-      Fraction
-      PartialFloat
-      Alphanum ]
-    
+    [ Letter; Nonzero; Digit; Fraction; PartialFloat; Alphanum ]
+
 let matched (lexeme: string): (Token * string) list =
     precedenceHighToLowTokens
     |> List.map (tryMatch lexeme)
@@ -319,8 +314,7 @@ let tokenizeChars (stream: char list) =
     let mutable keepLooking = true
     let mutable found = []
     let mutable result: PartialResult option = None
-    let isPartialToken = fun token ->
-        List.contains token partialTokens
+    let isPartialToken = fun token -> List.contains token partialTokens
 
     while keepLooking = true do
         let newResult = matched (strBuffer |> String.Concat)
@@ -330,7 +324,8 @@ let tokenizeChars (stream: char list) =
             found <- newResult
             let (token, lexeme) = newResult.[0]
             if not (isPartialToken token) then
-                result <- Some
+                result <-
+                    Some
                         { token = token
                           index = index
                           lexeme = lexeme }
@@ -342,7 +337,8 @@ let tokenizeChars (stream: char list) =
                 // Here the first element (index 0) has highest priority on token type
                 let (token, lexeme) = newResult.[0]
                 if not (isPartialToken token) then
-                    result <- Some
+                    result <-
+                        Some
                             { token = token
                               index = index
                               lexeme = lexeme }
@@ -435,10 +431,10 @@ let display (outcomes: Outcome list): string =
             str <- str + "\n" + outcomeAsString
     str
 
-let writeTokens (outcomes: Outcome list) (path: string option) =
+let writeTokens (outcomes: Outcome list) (path: string) =
     Utils.write (display outcomes) path
 
-let writeErrors (outcomes: Outcome list) (path: string option) =
+let writeErrors (outcomes: Outcome list) (path: string) =
     Utils.write
         (lexicalErrorsFromOutcomes outcomes
          |> List.map (fun e -> e.displayDetailed)
