@@ -1,0 +1,94 @@
+STATEMENT -> ASSIGNSTAT semi 
+            |if lpar RELEXPR rpar then STATBLOCK else STATBLOCK semi 
+            |while lpar RELEXPR rpar STATBLOCK semi 
+            |read lpar VARIABLE rpar semi 
+            |write lpar EXPR rpar semi 
+            |return lpar EXPR rpar semi 
+            |FUNCTIONCALL semi .
+
+REPTIDNEST1 -> INDICE REPTIDNEST1 
+              |.
+
+REPTFUNCTIONCALL0 -> IDNEST REPTFUNCTIONCALL0 
+                    |.
+
+ADDOP -> plus 
+        |minus 
+        |or .
+
+APARAMSTAIL -> comma EXPR .
+
+APARAMS -> EXPR REPTAPARAMS1 
+          |.
+
+RELOP -> eq 
+        |neq 
+        |lt 
+        |gt 
+        |leq 
+        |geq .
+
+INDICE -> lsqbr ARITHEXPR rsqbr .
+
+SIGN -> plus 
+       |minus .
+
+STATBLOCK -> do REPTSTATBLOCK1 end 
+            |STATEMENT 
+            |.
+
+ASSIGNOP -> equal .
+
+RELEXPR -> ARITHEXPR RELOP ARITHEXPR .
+
+VARIABLE -> REPTVARIABLE0_1 REPTVARIABLE2 .
+
+FACTOR -> VARIABLE 
+         |FUNCTIONCALL 
+         |intnum 
+         |floatnum 
+         |lpar ARITHEXPR rpar 
+         |not FACTOR 
+         |SIGN FACTOR .
+
+TERM -> FACTOR RIGHTRECTERM .
+
+MULTOP -> mult 
+         |div 
+         |and .
+
+RIGHTRECTERM -> MULTOP FACTOR RIGHTRECTERM .
+
+REPTAPARAMS1 -> APARAMSTAIL REPTAPARAMS1 
+               |.
+
+EXPR -> ARITHEXPR 
+       |RELEXPR .
+
+Fid -> REPTIDNEST1 dot 
+      |lpar APARAMS rpar dot .
+
+FUNCTIONCALL -> REPTFUNCTIONCALL0_1 lpar APARAMS rpar .
+
+ARITHEXPR -> TERM RIGHTRECARITHEXPR .
+
+RIGHTRECARITHEXPR -> ADDOP TERM RIGHTRECARITHEXPR .
+
+ASSIGNSTAT -> VARIABLE ASSIGNOP EXPR .
+
+REPTSTATBLOCK1 -> STATEMENT REPTSTATBLOCK1 
+                 |.
+
+REPTVARIABLE0 -> IDNEST REPTVARIABLE0 
+                |.
+
+REPTVARIABLE2 -> INDICE REPTVARIABLE2 
+                |.
+
+REPTFUNCTIONCALL0_1 -> IDNEST REPTFUNCTIONCALL0_1 
+                      |id .
+
+REPTVARIABLE0_1 -> IDNEST REPTVARIABLE0_1 
+                  |id .
+                
+IDNEST -> id Fid .
