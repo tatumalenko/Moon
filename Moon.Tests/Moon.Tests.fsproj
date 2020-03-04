@@ -1,34 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
 
-    <IsPackable>false</IsPackable>
-    <GenerateProgramFile>false</GenerateProgramFile>
-    <RootNamespace>Moon.Tests</RootNamespace>
-  </PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <GenerateProgramFile>false</GenerateProgramFile>
+        <RootNamespace>Moon.Tests</RootNamespace>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Utils.fs" />
-    <Compile Include="Lexer.fs" />
-    <Compile Include="Main.fs" />
-    <Compile Include="Program.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Utils.fs" />
+        <Compile Include="Lexer.fs" />
+        <Compile Include="Grammar.fs" />
+        <Compile Include="Main.fs" />
+        <Compile Include="Program.fs" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="coverlet.msbuild" Version="2.8.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="FsUnit.xUnit" Version="3.8.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
-    <PackageReference Include="xunit" Version="2.4.0" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
-    <PackageReference Include="coverlet.collector" Version="1.0.1" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="coverlet.msbuild" Version="2.8.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="FsUnit.xUnit" Version="3.8.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+        <PackageReference Include="Unquote" Version="5.0.0" />
+        <PackageReference Include="xunit" Version="2.4.0" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
+        <PackageReference Include="coverlet.collector" Version="1.0.1" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Moon\Moon.fsproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Moon\Moon.fsproj" />
+        <PackageReference Include="Argu" Version="6.0.0" />
+    </ItemGroup>
 
 </Project>

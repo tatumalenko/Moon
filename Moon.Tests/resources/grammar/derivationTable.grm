@@ -1,0 +1,15 @@
+[START -> PROG]: 
+	START
+
+[PROG -> PROG1 ClassDeclList PROG2 FuncDefList main FUNCBODY MainFuncBody Prog EndProgram]: 
+	PROG
+
+[PROG1 -> CLASSDECL PROG1]: 
+	PROG1 PROG2 main FUNCBODY
+
+[CLASSDECL -> class id Data Id CLASSDECL1 { CLASSDECL2 } MemberList ; ClassDecl]: 
+	CLASSDECL PROG1 PROG2 main FUNCBODY
+
+[]: 
+	class id CLASSDECL1 { CLASSDECL2 } ; PROG1 PROG2 main FUNCBODY
+

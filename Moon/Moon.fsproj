@@ -1,19 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
-    <RootNamespace>Moon</RootNamespace>
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <RootNamespace>Moon</RootNamespace>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="Utils.fs" />
-    <Compile Include="Lexer.fs" />
-    <Compile Include="Main.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Extensions.fs"/>
+        <Compile Include="Utils.fs"/>
+        <Compile Include="Lexer.fs"/>
+        <Compile Include="Language.fs"/>
+        <Compile Include="AST.fs"/>
+        <Compile Include="Grammar.fs"/>
+        <Compile Include="Parser.fs"/>
+        <Compile Include="Main.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Argu" Version="6.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Argu" Version="6.0.0"/>
+    </ItemGroup>
 
 </Project>

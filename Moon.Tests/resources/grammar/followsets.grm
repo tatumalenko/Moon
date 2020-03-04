@@ -1,0 +1,73 @@
+Start: { $ }
+Prog: { $ }
+Prog1: { Id main }
+Prog2: { main }
+ClassDecl: { Id class main }
+ClassDecl1: { { }
+ClassDecl2: { } }
+ClassDecl3: { { }
+Visibility: { Id integer float }
+MemberDecl: { } public private }
+MemberDecl1: { } public private }
+FuncHead: { do local }
+FuncHead1: { ( }
+FuncDef: { Id main }
+FuncDeclIdless: { } public private }
+FuncBody: { ; $ }
+FuncBody1: { do }
+FuncBody2: { end }
+FuncBody3: { do }
+VarDecl: { Id integer float do }
+VarDecl1: { Id } integer float do public private }
+VarDecl2: { ; } public private }
+Stat: { Id ; if else while end read write return }
+Stat1: { Id ; if else while end read write return }
+Stat2: { Id ; if else while end read write return }
+Stat3: { Id ; if else while end read write return }
+Stat4: { Id ; if else while end read write return }
+Stat5: { Id ; if else while end read write return }
+Stat6: { Id ; if else while end read write return }
+AssignStat: { ; }
+StatBlock: { ; else }
+StatBlock1: { end }
+Expr: { ; , ) }
+Expr1: { ; , ) }
+RelExpr: { ) }
+ArithExpr: { < > ; , ) ] == <= >= <> }
+ArithExpr1: { < > ; , ) ] == <= >= <> }
+Sign: { IntegerLiteral FloatLiteral Id + - ( not }
+Term: { + - < > ; , ) ] == <= >= <> or }
+Term1: { + - < > ; , ) ] == <= >= <> or }
+Factor: { + - * < > / ; , ) ] == <= >= <> or and }
+Factor1: { + - * < > / ; , ) ] == <= >= <> or and }
+Factor2: { + - * < > / ; , ) ] == <= >= <> or and }
+Factor3: { + - * < > / ; , ) ] == <= >= <> or and }
+Factor4: { + - * < > / ; , ) ] == <= >= <> or and }
+Factor5: { + - * < > / ; , ) ] == <= >= <> or and }
+Var: { ) }
+Var1: { ) [ }
+Var2: { = ) }
+Var3: { = + - * < > / ; , ) [ ] == <= >= <> or and }
+Var4: { ) [ }
+IdNest: { Id = + - * < > / ; , ) [ ] == <= >= <> or and }
+IdNest1: { = + - * < > / ; , . ) ] == <= >= <> or and }
+IdNest2: { = + - * < > / ; , . ) ] == <= >= <> or and }
+IdNest3: { = + - * < > / ; , . ) ] == <= >= <> or and }
+Index: { = + - * < > / ; , . ) [ ] == <= >= <> or and }
+ArraySize: { ; , ) [ } public private }
+Type: { Id ; do local }
+TypeOrVoid: { ; do local }
+FParams: { ) }
+FParams1: { , ) }
+FParams2: { ) }
+AParams: { ) }
+AParams1: { ) }
+FParamsTail: { , ) }
+FParamsTail1: { , ) }
+AParamsTail: { , ) }
+AssignOp: { IntegerLiteral FloatLiteral Id + - ( not }
+RelOp: { IntegerLiteral FloatLiteral Id + - ( not }
+AddOp: { IntegerLiteral FloatLiteral Id + - ( not }
+MultOp: { IntegerLiteral FloatLiteral Id + - ( not }
+IntegerOrFloat: { Id ; [ } do public private local }
+MaybeIntNum: { ] }

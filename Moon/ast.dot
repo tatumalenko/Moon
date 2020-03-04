@@ -1,0 +1,12 @@
+digraph AST {
+    node [shape=record];
+    node [frontname=Sans];
+    charset="UTF-8"
+    splines=true
+    splines=spline
+    rankdir=LR
+
+    node [label="27, \{ WriteStat: null \}"] 27
+    node [label="26, \{ VarElementList: null \}"] 26
+    27 -> 26
+}

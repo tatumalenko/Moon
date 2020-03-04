@@ -1,0 +1,6 @@
+WrongNodeOnStackOne (Trying to make node VarDecl while expecting Type, but found node Id)
+WrongNodeOnStackOne (Trying to make node VarDecl while expecting Type, but found node Id)
+WrongNodeOnStackOne (Trying to make node AssignStat while expecting VarElementList, but found node Num)
+WrongNodeOnStackOne (Trying to make node RelExpr while expecting RelOp, but found node AddOp)
+WrongNodeOnStackOne (Trying to make node AssignStat while expecting VarElementList, but found node AddOp)
+WrongNodeOnStackOne (Trying to make node WhileStat while expecting RelExpr, but found node StatBlock)

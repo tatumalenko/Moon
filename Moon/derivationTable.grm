@@ -1,0 +1,300 @@
+[START -> PROG]: 
+	START
+
+[PROG -> PROG1 ClassDeclList PROG2 FuncDefList main FUNCBODY MainFuncBody Prog EndProgram]: 
+	PROG
+
+[PROG1 -> .]: 
+	PROG1 PROG2 main FUNCBODY
+
+[PROG2 -> .]: 
+	PROG2 main FUNCBODY
+
+[FUNCBODY -> FUNCBODY1 do FUNCBODY2 end]: 
+	main FUNCBODY
+
+[FUNCBODY1 -> local FUNCBODY3]: 
+	main FUNCBODY1 do FUNCBODY2 end
+
+[FUNCBODY3 -> VARDECL FUNCBODY3]: 
+	main local FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL -> INTEGERORFLOAT VARDECL1 VarDecl]: 
+	main local VARDECL FUNCBODY3 do FUNCBODY2 end
+
+[INTEGERORFLOAT -> integer]: 
+	main local INTEGERORFLOAT VARDECL1 FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL1 -> id Data Id VARDECL2 ;]: 
+	main local integer VARDECL1 FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL2 -> .]: 
+	main local integer id VARDECL2 ; FUNCBODY3 do FUNCBODY2 end
+
+[FUNCBODY3 -> VARDECL FUNCBODY3]: 
+	main local integer id ; FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL -> INTEGERORFLOAT VARDECL1 VarDecl]: 
+	main local integer id ; VARDECL FUNCBODY3 do FUNCBODY2 end
+
+[INTEGERORFLOAT -> float]: 
+	main local integer id ; INTEGERORFLOAT VARDECL1 FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL1 -> id Data Id VARDECL2 ;]: 
+	main local integer id ; float VARDECL1 FUNCBODY3 do FUNCBODY2 end
+
+[VARDECL2 -> .]: 
+	main local integer id ; float id VARDECL2 ; FUNCBODY3 do FUNCBODY2 end
+
+[FUNCBODY3 -> .]: 
+	main local integer id ; float id ; FUNCBODY3 do FUNCBODY2 end
+
+[FUNCBODY2 -> STAT FUNCBODY2]: 
+	main local integer id ; float id ; do FUNCBODY2 end
+
+[STAT -> id Data Id STAT1]: 
+	main local integer id ; float id ; do STAT FUNCBODY2 end
+
+[STAT1 -> IDNEST1 STAT6]: 
+	main local integer id ; float id ; do id STAT1 FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id IDNEST1 STAT6 FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id IDNEST2 STAT6 FUNCBODY2 end
+
+[STAT6 -> ASSIGNSTAT ;]: 
+	main local integer id ; float id ; do id STAT6 FUNCBODY2 end
+
+[ASSIGNSTAT -> ASSIGNOP EXPR AssignStat]: 
+	main local integer id ; float id ; do id ASSIGNSTAT ; FUNCBODY2 end
+
+[ASSIGNOP -> =]: 
+	main local integer id ; float id ; do id ASSIGNOP EXPR ; FUNCBODY2 end
+
+[EXPR -> ARITHEXPR EXPR1]: 
+	main local integer id ; float id ; do id = EXPR ; FUNCBODY2 end
+
+[ARITHEXPR -> TERM ARITHEXPR1]: 
+	main local integer id ; float id ; do id = ARITHEXPR EXPR1 ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = TERM ARITHEXPR1 EXPR1 ; FUNCBODY2 end
+
+[FACTOR -> intnum Data Num]: 
+	main local integer id ; float id ; do id = FACTOR TERM1 ARITHEXPR1 EXPR1 ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum TERM1 ARITHEXPR1 EXPR1 ; FUNCBODY2 end
+
+[ARITHEXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ARITHEXPR1 EXPR1 ; FUNCBODY2 end
+
+[EXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum EXPR1 ; FUNCBODY2 end
+
+[FUNCBODY2 -> STAT FUNCBODY2]: 
+	main local integer id ; float id ; do id = intnum ; FUNCBODY2 end
+
+[STAT -> while ( RELEXPR ) STATBLOCK ; WhileStat]: 
+	main local integer id ; float id ; do id = intnum ; STAT FUNCBODY2 end
+
+[RELEXPR -> ARITHEXPR RELOP ARITHEXPR RelExpr]: 
+	main local integer id ; float id ; do id = intnum ; while ( RELEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[ARITHEXPR -> TERM ARITHEXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( ARITHEXPR RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( TERM ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR -> id Data Id FACTOR1 VarElementList]: 
+	main local integer id ; float id ; do id = intnum ; while ( FACTOR TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR1 -> IDNEST1 FACTOR2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id FACTOR1 TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id IDNEST1 FACTOR2 TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id IDNEST2 FACTOR2 TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id FACTOR2 TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id TERM1 ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[ARITHEXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id ARITHEXPR1 RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[RELOP -> <> Data RelOp]: 
+	main local integer id ; float id ; do id = intnum ; while ( id RELOP ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[ARITHEXPR -> TERM ARITHEXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> ARITHEXPR ) STATBLOCK ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> TERM ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR -> intnum Data Num]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> FACTOR TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[ARITHEXPR1 -> ADDOP Data TERM ARITHEXPR1 AddOp]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[ADDOP -> or]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum ADDOP TERM ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or TERM ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR -> id Data Id FACTOR1 VarElementList]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or FACTOR TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR1 -> IDNEST1 FACTOR2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id FACTOR1 TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id IDNEST1 FACTOR2 TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id IDNEST2 FACTOR2 TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[FACTOR2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id FACTOR2 TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id TERM1 ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[ARITHEXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ARITHEXPR1 ) STATBLOCK ; FUNCBODY2 end
+
+[STATBLOCK -> do STATBLOCK1 end StatBlock]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) STATBLOCK ; FUNCBODY2 end
+
+[STATBLOCK1 -> STAT STATBLOCK1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do STATBLOCK1 end ; FUNCBODY2 end
+
+[STAT -> id Data Id STAT1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do STAT STATBLOCK1 end ; FUNCBODY2 end
+
+[STAT1 -> IDNEST1 STAT6]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id STAT1 STATBLOCK1 end ; FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id IDNEST1 STAT6 STATBLOCK1 end ; FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id IDNEST2 STAT6 STATBLOCK1 end ; FUNCBODY2 end
+
+[STAT6 -> ASSIGNSTAT ;]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id STAT6 STATBLOCK1 end ; FUNCBODY2 end
+
+[ASSIGNSTAT -> ASSIGNOP EXPR AssignStat]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id ASSIGNSTAT ; STATBLOCK1 end ; FUNCBODY2 end
+
+[ASSIGNOP -> =]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id ASSIGNOP EXPR ; STATBLOCK1 end ; FUNCBODY2 end
+
+[EXPR -> ARITHEXPR EXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = EXPR ; STATBLOCK1 end ; FUNCBODY2 end
+
+[ARITHEXPR -> TERM ARITHEXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = ARITHEXPR EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = TERM ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[FACTOR -> id Data Id FACTOR1 VarElementList]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = FACTOR TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[FACTOR1 -> IDNEST1 FACTOR2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id FACTOR1 TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id IDNEST1 FACTOR2 TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id IDNEST2 FACTOR2 TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[FACTOR2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id FACTOR2 TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[ARITHEXPR1 -> ADDOP Data TERM ARITHEXPR1 AddOp]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[ADDOP -> +]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id ADDOP TERM ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + TERM ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[FACTOR -> intnum Data Num]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + FACTOR TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum TERM1 ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[ARITHEXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ARITHEXPR1 EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[EXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum EXPR1 ; STATBLOCK1 end ; FUNCBODY2 end
+
+[STATBLOCK1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; STATBLOCK1 end ; FUNCBODY2 end
+
+[FUNCBODY2 -> STAT FUNCBODY2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; FUNCBODY2 end
+
+[STAT -> write ( EXPR ) ; WriteStat]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; STAT FUNCBODY2 end
+
+[EXPR -> ARITHEXPR EXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( EXPR ) ; FUNCBODY2 end
+
+[ARITHEXPR -> TERM ARITHEXPR1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( ARITHEXPR EXPR1 ) ; FUNCBODY2 end
+
+[TERM -> FACTOR TERM1]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( TERM ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[FACTOR -> id Data Id FACTOR1 VarElementList]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( FACTOR TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[FACTOR1 -> IDNEST1 FACTOR2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id FACTOR1 TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[IDNEST1 -> IDNEST2]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id IDNEST1 FACTOR2 TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[IDNEST2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id IDNEST2 FACTOR2 TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[FACTOR2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id FACTOR2 TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[TERM1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id TERM1 ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[ARITHEXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id ARITHEXPR1 EXPR1 ) ; FUNCBODY2 end
+
+[EXPR1 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id EXPR1 ) ; FUNCBODY2 end
+
+[FUNCBODY2 -> .]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id ) ; FUNCBODY2 end
+
+[]: 
+	main local integer id ; float id ; do id = intnum ; while ( id <> intnum or id ) do id = id + intnum ; end ; write ( id ) ; end
+

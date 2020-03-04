@@ -418,7 +418,7 @@ healthchecksdb
 MigrationBackup/
 
 # Ionide
-.ionide/*
+.ionide
 
 # MacOS
 **/.DS_Store

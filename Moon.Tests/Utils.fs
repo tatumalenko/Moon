@@ -13,3 +13,11 @@ let asTestArguments (args: obj list list): seq<obj array> =
 
 let makePath (path: string) =
     Path.Combine(__SOURCE_DIRECTORY__, path)
+    
+let fileName (path: string) =
+    System.IO.Path.GetFileNameWithoutExtension (path)
+    
+let directoryName (path: string) =
+    System.IO.Path.GetDirectoryName (path)
+    
+let shouldEqual<'T when 'T: equality> (arg1: 'T) (arg2: 'T) = arg1 = arg2

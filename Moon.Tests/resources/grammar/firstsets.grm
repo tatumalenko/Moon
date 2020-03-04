@@ -1,0 +1,73 @@
+Start: { Id class main }
+Prog: { Id class main }
+Prog1: { class ε }
+Prog2: { Id ε }
+ClassDecl: { class }
+ClassDecl1: { inherits ε }
+ClassDecl2: { public private ε }
+ClassDecl3: { , ε }
+Visibility: { public private }
+MemberDecl: { Id integer float }
+MemberDecl1: { Id ( }
+FuncHead: { Id }
+FuncHead1: { :: ε }
+FuncDef: { Id }
+FuncDeclIdless: { ( }
+FuncBody: { do local }
+FuncBody1: { local ε }
+FuncBody2: { Id if while read write return ε }
+FuncBody3: { Id integer float ε }
+VarDecl: { Id integer float }
+VarDecl1: { Id }
+VarDecl2: { [ ε }
+Stat: { Id if while read write return }
+Stat1: { = ; . ( [ }
+Stat2: { ; . }
+Stat3: { Id = [ }
+Stat4: { . ( [ }
+Stat5: { ; . }
+Stat6: { = ; . }
+AssignStat: { = }
+StatBlock: { Id if while do read write return ε }
+StatBlock1: { Id if while read write return ε }
+Expr: { IntegerLiteral FloatLiteral Id + - ( not }
+Expr1: { < > == <= >= <> ε }
+RelExpr: { IntegerLiteral FloatLiteral Id + - ( not }
+ArithExpr: { IntegerLiteral FloatLiteral Id + - ( not }
+ArithExpr1: { + - or ε }
+Sign: { + - }
+Term: { IntegerLiteral FloatLiteral Id + - ( not }
+Term1: { * / and ε }
+Factor: { IntegerLiteral FloatLiteral Id + - ( not }
+Factor1: { . ( [ ε }
+Factor2: { . ε }
+Factor3: { Id ε }
+Factor4: { . ( [ }
+Factor5: { . ε }
+Var: { Id }
+Var1: { . ( [ }
+Var2: { [ ε }
+Var3: { Id ε }
+Var4: { . }
+IdNest: { Id }
+IdNest1: { ( [ ε }
+IdNest2: { [ ε }
+IdNest3: { ( }
+Index: { [ }
+ArraySize: { [ }
+Type: { Id integer float }
+TypeOrVoid: { Id integer float void }
+FParams: { Id integer float ε }
+FParams1: { [ ε }
+FParams2: { , ε }
+AParams: { IntegerLiteral FloatLiteral Id + - ( not ε }
+AParams1: { , ε }
+FParamsTail: { , }
+FParamsTail1: { [ ε }
+AParamsTail: { , }
+AssignOp: { = }
+RelOp: { < > == <= >= <> }
+AddOp: { + - or }
+MultOp: { * / and }
+IntegerOrFloat: { integer float }
+MaybeIntNum: { IntegerLiteral ε }

@@ -2,6 +2,7 @@ module Moon.Tests.Main
 
 open Xunit
 open FsUnit.Xunit
+open Argu
 
 [<Fact>]
 let ``Given valid command line arguments, the main function returns 0``() =
