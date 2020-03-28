@@ -37,8 +37,10 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
     let sanitizedTokensOutPath = Utils.makePath (outRelativePath + fileName + ".lexer.tokens.sanitized")
     let astOutPath = Utils.makePath (outRelativePath + fileName + ".parse.ast")
     let astErrorsOutPath = Utils.makePath (outRelativePath + fileName + ".parse.ast.errors")
-    let dotFileName = fileName + ".parse.ast.dot"
-    let dotOutPath = Utils.makePath (outRelativePath + dotFileName)
+    let syntaxTreeDotFileName = fileName + ".parse.ast.dot"
+    let symbolTreeDotFileName = fileName + ".parse.symbolTree.dot"
+    let syntaxTreeDotOutPath = Utils.makePath (outRelativePath + syntaxTreeDotFileName)
+    let symbolTreeDotOutPath = Utils.makePath (outRelativePath + symbolTreeDotFileName)
     let derivationOutPath = Utils.makePath (outRelativePath + fileName + ".parse.derivation")
     let parseErrorsOutPath = Utils.makePath (outRelativePath + fileName + ".parse.errors")
     let symbolTableOutPath = Utils.makePath (outRelativePath + fileName + ".parse.symbols")
@@ -90,19 +92,25 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
 
             let syntaxElementTree = Ast.makeTree ast
 
-            Utils.write (Ast.makeGraphViz syntaxElementTree) dotOutPath
+            Utils.write (Ast.makeGraphViz syntaxElementTree) syntaxTreeDotOutPath
 
-            let symbolTable = SymbolTable.makeSymbolTable syntaxElementTree
+            let symbolTable, symbolTree = SymbolTable.makeSymbolTableAndTree syntaxElementTree
 
             let symbolTableAsString = SymbolTable.drawSymbolTable symbolTable
 
             Utils.write (symbolTableAsString) symbolTableOutPath
 
+            Utils.write (Ast.makeGraphViz symbolTree) symbolTreeDotOutPath
+
             let semanticErrors = Semanter.check symbolTable
 
             let outputs, errors =
                 Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
-                    ("-Tpdf " + dotFileName + " -o " + dotFileName + ".pdf")
+                    ("-Tpdf " + syntaxTreeDotFileName + " -o " + syntaxTreeDotFileName + ".pdf")
+
+            let outputs, errors =
+                Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
+                    ("-Tpdf " + symbolTreeDotFileName + " -o " + symbolTreeDotFileName + ".pdf")
 
             test <@ derivationTable <> List.empty @>
 

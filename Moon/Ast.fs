@@ -4,13 +4,13 @@ namespace Moon
 type Node<'E> =
     { index: int
       mutable parent: int option
-      mutable children: int list
+      mutable branches: int list
       element: 'E }
     member x.show =
         let asStringOrNull arg =
             if Option.isSome arg then show (Option.get arg) else ""
 
-        let childrenAsString = "[" + (String.concat ", " (x.children |> List.map (fun e -> show e))) + "]"
+        let childrenAsString = "[" + (String.concat ", " (x.branches |> List.map (fun e -> show e))) + "]"
         "(index: " + show x.index + ", parent: " + (asStringOrNull x.parent) + ", children: " + childrenAsString + ", element: " + show x.element
         + ")"
 
@@ -250,11 +250,11 @@ and IndexedAst =
 
     member m.nodeElementAt (nodeId: int) = m.nodes.[nodeId].element
 
-    member m.childrenAt (nodeId: int) = m.nodes.[nodeId].children
+    member m.childrenAt (nodeId: int) = m.nodes.[nodeId].branches
 
     member m.addLeftChild (parentId: int) (childId: int) =
         let mutable parentNode = m.nodes.[parentId]
-        List.insert (childId) 0 (&parentNode.children)
+        List.insert (childId) 0 (&parentNode.branches)
         let childNode = m.nodes.[childId]
         childNode.parent <- Some parentId
 
@@ -375,7 +375,7 @@ and IndexedAst =
         let node =
             { index = index
               parent = None
-              children = List.empty
+              branches = List.empty
               element = nodeElement }
         m.nodes <- m.nodes @ [ node ]
         index
@@ -446,11 +446,11 @@ module Ast =
         str
 
     let makeTree (ast: IndexedAst) =
-        let f x = (x, List.map ast.nodeAt x.children)
+        let f x = (x, List.map ast.nodeAt x.branches)
         let g x = x.element
         Tree.unfold f (ast.nodeAt (Option.get ast.index)) |> Tree.map g
 
-    let makeGraphViz (ast: Tree<SyntaxElement>) =
+    let makeGraphViz (ast: Tree<'Element>) =
         let foldWithIndex id syntaxElement = id + 1, (id, syntaxElement)
         let treeWithIndex = Tree.mapFold foldWithIndex 0 ast |> snd
 

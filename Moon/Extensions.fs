@@ -4,6 +4,11 @@ open FSharpPlus
 
 [<AutoOpen>]
 module Extensions =
+    let inline (|||) (a: 'a option) b =
+        if Option.isSome a then Option.get a else b
+
+    type Option<'E> with
+        member x.map f = Option.map f x
 
     type Seq =
         static member safeSkip (num: int) (source: seq<'a>): seq<'a> =
@@ -92,8 +97,6 @@ module Extensions =
             { items = items
               item = None
               idx = -1 }
-
-
 
 [<AutoOpen>]
 [<RequireQualifiedAccess>]
