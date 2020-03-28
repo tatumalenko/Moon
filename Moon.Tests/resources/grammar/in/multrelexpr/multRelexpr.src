@@ -5,7 +5,7 @@ main
   do
     read(x);
 	num = 1;
-	while(x <> 442 or x <> 6421)
+	while(x <> 442) //  or x <> 6421
 	  do
 	    read(x);
 	    num = num + 1;

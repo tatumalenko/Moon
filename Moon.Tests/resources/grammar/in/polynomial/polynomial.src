@@ -1,12 +1,12 @@
 // ====== Class declarations ====== //
 class POLYNOMIAL {
 	public evaluate(float x) : float;
-};
+}
 
 class LINEAR inherits POLYNOMIAL {
 	private float a;
 	private float b;
-	
+
 	public build(float A, float B) : LINEAR;
 	public evaluate(float x) : float;
 }
@@ -15,7 +15,7 @@ class QUADRATIC inherits POLYNOMIAL {
 	private float a;
 	private float b;
 	private float c;
-	
+
 	public build(float A, float B, float C) : QUADRATIC;
 	public evaluate(float x) : float;
 }
@@ -34,7 +34,7 @@ LINEAR::evaluate(float x) : float
     result = a * x + b;
     return (result);
   end
-  
+
 QUADRATIC::evaluate(float x) : float
   local
     float result;
@@ -44,7 +44,7 @@ QUADRATIC::evaluate(float x) : float
     result = result * x + c;
     return (result);
   end
-  
+
 LINEAR::build(float A, float B) : LINEAR
   local
     LINEAR new_function;
@@ -52,8 +52,8 @@ LINEAR::build(float A, float B) : LINEAR
     new_function.a = A;
     new_function.b = B;
     return (new_function);
-  end  
-  
+  end
+
 QUADRATIC::build(float A, float B, float C) : QUADRATIC
   local
     QUADRATIC new_function;
@@ -63,7 +63,7 @@ QUADRATIC::build(float A, float B, float C) : QUADRATIC
     new_function.c = C;
     return (new_function);
   end
-  
+
 
 // ====== main ====== //
 main
@@ -75,7 +75,7 @@ main
     f1 = f1.build(2, 3.5);
     f2 = f2.build(-2.0, 1.0, 0.0);
     counter = 1;
-	
+
     while(counter <= 10)
       do
         write(counter);

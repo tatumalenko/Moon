@@ -12,6 +12,7 @@
         <Compile Include="Utils.fs" />
         <Compile Include="Lexer.fs" />
         <Compile Include="Grammar.fs" />
+        <Compile Include="Tree.fs" />
         <Compile Include="Main.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>

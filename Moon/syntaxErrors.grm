@@ -1,4 +1,0 @@
-WrongTerminal
-  ([token='<>', lexeme='<>', line=8, column=23],ClosedBracket,
-   Some { line = 8
-          column = 29 })

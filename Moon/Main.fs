@@ -3,11 +3,7 @@ module Moon.Main
 open System
 open System.Reflection
 open System.Text.RegularExpressions
-open System.Collections.Generic
-open Moon
-open Moon.Lexer
 open Argu
-open Moon.Grammar
 
 type LexArgs =
     | Path of string
@@ -26,7 +22,7 @@ type ParseArgs =
         member s.Usage =
             match s with
             | Path _ -> "path of the file to parse"
-            
+
 
 and CommandArgs =
     | [<CliPrefix(CliPrefix.None)>] Lex of ParseResults<LexArgs>
@@ -61,21 +57,21 @@ let processLexCmd (command: ParseResults<LexArgs>) (parser: ArgumentParser<Comma
             Console.WriteLine(parser.PrintUsage())
             failwith "Missing command line argument --outDir"
 
-    let outcomes = tokenize (if text = "" then FilePath inPath else InputType.Text text)
+    let outcomes = Lexer.tokenize (if text = "" then FilePath inPath else InputType.Text text)
 
     if text = "" then
         let fileName = Utils.Path.fileName inPath
-        writeTokens outcomes (Utils.Path.join outDir (fileName + ".outlextokens"))
-        writeErrors outcomes (Utils.Path.join outDir (fileName + ".outlexerrors"))
+        Lexer.writeTokens outcomes (Utils.Path.join outDir (fileName + ".outlextokens"))
+        Lexer.writeErrors outcomes (Utils.Path.join outDir (fileName + ".outlexerrors"))
     else
         printfn ""
         printfn "OUTLEXTOKENS:"
-        printfn "%s" (display outcomes)
+        printfn "%s" (Lexer.display outcomes)
         printfn ""
         printfn "OUTLEXERRORS:"
         printfn "%s"
             (outcomes
-             |> List.map string
+             |> List.map show
              |> List.fold (fun state e ->
                  if state = "" then e else state + "\n" + e) "")
 
@@ -96,7 +92,7 @@ let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<C
 
     let grammar =
         Utils.read (Utils.Path.makePath "grammar.grm")
-        |> ContextFreeGrammar.from
+        |> Grammar.from
 
     match grammar with
     | Ok cfg ->
@@ -112,12 +108,12 @@ let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<C
             | token when token.tokenType.isValid -> tokens <- tokens @ [ token ]
             | _ -> ignore()
 
-        let table = Grammar.makeTable cfg firstSets followSets
+        let table = Grammar.makeParseTable cfg firstSets followSets
+        let parserTableAsString = Parser.drawParseTable cfg table
+        Utils.write parserTableAsString (Utils.Path.makePath "parseTable.grm")
+
         match table with
         | Ok parserTable ->
-            let parserTableAsString = Parser.parserTableAsString parserTable
-            Utils.write parserTableAsString (Utils.Path.makePath "parseTable.grm")
-
             let parser =
                 { Parser.grammar = cfg
                   Parser.table = parserTable
@@ -126,15 +122,15 @@ let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<C
 
             match parser.sanitizeTokensAndParse tokens with
             | Ok (ast, derivationTable, syntaxErrors) ->
-                Utils.write (Parser.astAsString ast) (Utils.Path.makePath "ast.grm")
+                Utils.write (Parser.drawIndexedAst ast) (Utils.Path.makePath "ast.grm")
                 Utils.write
                     (ast.errors
-                     |> List.map (fun e -> e.ToString())
+                     |> List.map (fun e -> show e)
                      |> String.concat "\n") (Utils.Path.makePath "astErrors.grm")
-                Utils.write (AST.asGraphViz ast) (Utils.Path.makePath "ast.dot")
-                Utils.write (Parser.derivationTableAsString derivationTable)
+                Utils.write (Ast.asGraphViz ast) (Utils.Path.makePath "ast.dot")
+                Utils.write (Parser.drawDerivationTable derivationTable)
                     (Utils.Path.makePath "derivationTable.grm")
-                Utils.write (Parser.syntaxErrorsAsString syntaxErrors) (Utils.Path.makePath "syntaxErrors.grm")
+                Utils.write (Parser.drawSyntaxErrors syntaxErrors) (Utils.Path.makePath "syntaxErrors.grm")
                 ()
             | _ ->
                 printfn "Oops. Something went wrong"
@@ -143,7 +139,7 @@ let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<C
 
         | _ -> ()
     | Error _ -> ()
-        
+
 let processCompileRegexCmd (parser: ArgumentParser<CommandArgs>) =
     let tokenTypeCaseNames = Utils.unionCaseNames<TokenType>
     let tokenTypes = tokenTypeCaseNames |> Set.map Utils.makeUnionCase<TokenType>
@@ -154,11 +150,11 @@ let processCompileRegexCmd (parser: ArgumentParser<CommandArgs>) =
         |> Array.map (fun (tokenType, pattern) ->
             RegexCompilationInfo(
                 pattern,
-                RegexOptions.Compiled ||| RegexOptions.ExplicitCapture, 
-                Utils.unionCaseName tokenType, 
-                "Moon.DFA", 
+                RegexOptions.Compiled ||| RegexOptions.ExplicitCapture,
+                Utils.unionCaseName tokenType,
+                "Moon.DFA",
                 true))
-        
+
     Regex.CompileToAssembly(regexes, AssemblyName("Moon.DFA, Version=1.0.0.1001, Culture=neutral, PublicKeyToken=null"))
 
 [<EntryPoint>]

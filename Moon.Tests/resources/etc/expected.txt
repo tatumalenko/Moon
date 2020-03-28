@@ -1,8 +1,4 @@
-[BlockComment ('/*
-  This is
-  a
-  block comment
-*/'), line=2, column=1]
+[BlockComment ('/*  This is  a  block comment*/'), line=2, column=1]
 [Id ('int'), line=8, column=1]
 [Id ('my_var'), line=8, column=5]
 [Equal ('='), line=8, column=12]
@@ -10,8 +6,7 @@
 [Plus ('+'), line=8, column=16]
 [IntegerLiteral ('3'), line=8, column=18]
 [SemiColon (';'), line=8, column=19]
-[LineComment ('// This is a line comment
-'), line=10, column=1]
+[LineComment ('// This is a line comment'), line=10, column=1]
 [FloatLiteral ('0.234'), line=11, column=1]
 [Plus ('+'), line=11, column=7]
 [IntegerLiteral ('1234'), line=11, column=9]

@@ -7,18 +7,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Extensions.fs"/>
-        <Compile Include="Utils.fs"/>
-        <Compile Include="Lexer.fs"/>
-        <Compile Include="Language.fs"/>
-        <Compile Include="AST.fs"/>
-        <Compile Include="Grammar.fs"/>
-        <Compile Include="Parser.fs"/>
-        <Compile Include="Main.fs"/>
+        <Compile Include="Extensions.fs" />
+        <Compile Include="Utils.fs" />
+        <Compile Include="Tree.fs" />
+        <Compile Include="Lexer.fs" />
+        <Compile Include="Language.fs" />
+        <Compile Include="Ast.fs" />
+        <Compile Include="Grammar.fs" />
+        <Compile Include="Parser.fs" />
+        <Compile Include="SymbolTable.fs" />
+        <Compile Include="Semanter.fs" />
+        <Compile Include="Main.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Argu" Version="6.0.0"/>
+        <PackageReference Include="Argu" Version="6.0.0" />
+        <PackageReference Include="FSharpPlus" Version="1.1.0-RC3" />
+        <PackageReference Include="FSharpx.Collections" Version="2.1.2" />
     </ItemGroup>
 
 </Project>

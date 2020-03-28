@@ -1,15 +1,9 @@
-module Moon.Parser
-
-open Moon.Extensions
-open Moon.Lexer
-open Moon.AST
-open Moon.Grammar
-open Moon.Language
+namespace Moon
 
 type ParserSymbol =
-    | Variable of Language.Variable
-    | Terminal of Lexer.TokenType
-    | SemanticAction of AST.NodeType
+    | Variable of NonTerminal
+    | Terminal of TokenType
+    | SemanticAction of SyntaxKind
     | DollarSign
     static member fromGrammarSymbol (gs: GrammarSymbol) =
         match gs with
@@ -21,39 +15,44 @@ type ParserSymbol =
             ParserSymbol.SemanticAction a
         | Epsilon -> failwith "ABORT: Tried to ParserSymbol.fromGrammarSymbol Epsilon as GrammarSymbol!"
 
-[<StructuredFormatDisplay("{display}")>]
+[<StructuredFormatDisplay("{show}")>]
 type SyntaxError =
-    | WrongTerminal of Lexer.Token * Lexer.TokenType * Lexer.Location option
+    | WrongTerminal of Token * TokenType * Location option
     | WrongVariable of string
-    | NotInTableButInFollow of Lexer.Token * Language.Variable * bool
-    | NotInTableNorInFollow of Lexer.Token * Language.Variable * Lexer.Location option
-    | TokenAfterMain of Lexer.Token
-    member self.display =
+    | NotInTableButInFollow of Token * NonTerminal * bool
+    | NotInTableNorInFollow of Token * NonTerminal * Location option
+    | TokenAfterMain of Token
+    member x.show =
         let displayLocationMaybe (locationMaybe: Location option) =
             match locationMaybe with
-            | Some location -> string location
+            | Some location -> show location
             | None -> "line=NA, column=NA"
-        match self with
-        | WrongTerminal (token, tokenType, locationMaybe) -> "WrongTerminal: token='" + string token + "', tokenType='" + string tokenType + "', " + string locationMaybe 
-        | WrongVariable variable -> "WrongVariable: variable='" + string variable + "'"
-        | NotInTableButInFollow (token, variable, isDollarSign) -> "NotInTableButInFollow: token='" + string token + "', variable='" + string variable + "', isNotDollarSign=" + string isDollarSign
-        | NotInTableNorInFollow (token, variable, locationMaybe) -> "NotInTableNorInFollow: token='" + string token + "', variable='" + string variable + "', " + displayLocationMaybe locationMaybe
-        | TokenAfterMain token -> "TokenAfterMain: token='" + string token + "'"
+        match x with
+        | WrongTerminal(token, tokenType, locationMaybe) ->
+            "WrongTerminal: token='" + show token + "', tokenType='" + show tokenType + "', " + show locationMaybe
+        | WrongVariable variable -> "WrongVariable: variable='" + show variable + "'"
+        | NotInTableButInFollow(token, variable, isDollarSign) ->
+            "NotInTableButInFollow: token='" + show token + "', variable='" + show variable + "', isNotDollarSign=" + show isDollarSign
+        | NotInTableNorInFollow(token, variable, locationMaybe) ->
+            "NotInTableNorInFollow: token='" + show token + "', variable='" + show variable + "', " + displayLocationMaybe locationMaybe
+        | TokenAfterMain token -> "TokenAfterMain: token='" + show token + "'"
 
 type OptionalProduction = Production option
+
 type DerivationTable = (GrammarSymbol list * OptionalProduction) list
-type ParserOutput = Result<(AST * DerivationTable * SyntaxError list), ASTError>
+
+type ParserOutput = Result<IndexedAst * DerivationTable * SyntaxError list, ASTError>
 
 type Parser =
-    { grammar: ContextFreeGrammar
-      table: ParserTable
-      firstSets: Map<Language.Variable, FirstSet>
-      followSets: Map<Language.Variable, FollowSet> }
+    { grammar: Grammar
+      table: ParseTable
+      firstSets: Map<NonTerminal, FirstSet>
+      followSets: Map<NonTerminal, FollowSet> }
 
-    static member fromGrammar (grammar: ContextFreeGrammar): Result<Parser, GrammarError> =
+    static member fromGrammar (grammar: Grammar): Result<Parser, GrammarError> =
         let firstSets = Grammar.makeFirstSets grammar
         let followSets = Grammar.makeFollowSets grammar firstSets
-        let table = Grammar.makeTable grammar firstSets followSets
+        let table = Grammar.makeParseTable grammar firstSets followSets
         match table with
         | Ok parserTable ->
             Ok
@@ -64,68 +63,70 @@ type Parser =
         | Error grammarError ->
             Error grammarError
 
-    member m.start = m.grammar.start
+    member x.start = x.grammar.start
 
-    member m.get (variable: Variable) (input: FollowType): Production option =
-        Map.tryFind (variable, input) m.table |> Option.map (fun e -> m.grammar.productions.[e])
+    member x.get (variable: NonTerminal) (input: FollowType): Production option =
+        Map.tryFind (variable, input) x.table |> Option.map (fun e -> x.grammar.productions.[e])
 
-    member m.firstSetsAsString: string =
+    member x.firstSetsAsString: string =
         let mutable str = ""
-        for KeyValue(lhs, rhs) in m.firstSets do
-            str <- str + lhs.ToString() + ": {"
+        for KeyValue(lhs, rhs) in x.firstSets do
+            str <- str + show lhs + ": {"
             for symbol in rhs do
-                str <- str + " " + symbol.ToString()
+                str <- str + " " + show symbol
             str <- " }\n"
         str
 
-    member m.followSetsAsString: string =
+
+    member x.followSetsAsString: string =
         let mutable str = ""
-        for KeyValue(lhs, rhs) in m.followSets do
-            str <- str + lhs.ToString() + ": {"
+        for KeyValue(lhs, rhs) in x.followSets do
+            str <- str + show lhs + ": {"
             for symbol in rhs do
-                str <- str + " " + symbol.ToString()
+                str <- str + " " + show symbol
             str <- " }\n"
         str
-        
-    static member top (stack: ParserSymbol list) =
-        List.last stack
-        
+
+    static member top (stack: ParserSymbol list) = List.last stack
+
     static member pop (stack: ParserSymbol list) =
-        if List.length stack > 0 then
-            List.truncate (List.length stack - 1) stack
+        if List.length stack > 0
+        then List.truncate (List.length stack - 1) stack
         else stack
-        
-    static member nextToken (idx: int) (tokens: Lexer.Token list) =
+
+    static member nextToken (idx: int) (tokens: Token list) =
         let nextIdx = idx + 1
         if nextIdx < List.length tokens then
             let token = tokens.[nextIdx].tokenType
             (nextIdx, Some token)
         else
             (nextIdx, None)
-            
-    member m.parse (tokens: Lexer.Token list) = 
+
+    member x.parse (tokens: Token list) =
         let mutable parserSymbols = List.map (FollowType.Terminal) (tokens |> List.map (fun e -> e.tokenType.case))
-        parserSymbols <- parserSymbols @ [FollowType.DollarSign]
-        
-        let mutable tokenIter = Iter.make(tokens) 
-        let mutable tokenTypeIter = Iter.make(parserSymbols)
+        parserSymbols <- parserSymbols @ [ FollowType.DollarSign ]
+
+        let mutable tokenIter = Iter.make (tokens)
+        let mutable tokenTypeIter = Iter.make (parserSymbols)
         let mutable token = tokenIter.next() |> Option.get
         let mutable tokenType = tokenTypeIter.next() |> Option.get
         let mutable lastToken = None
-        
-        let mutable stack = [ ParserSymbol.DollarSign; ParserSymbol.Variable m.grammar.start ]
-        
-        let mutable ast = AST.make()
+
+        let mutable stack =
+            [ ParserSymbol.DollarSign
+              ParserSymbol.Variable x.grammar.start ]
+
+        let mutable ast = IndexedAst.make
         let mutable semanticStack = List.empty
-        let mutable tokenStack: Lexer.Token list = List.empty
-        
+        let mutable tokenStack: Token list = List.empty
+
         let mutable syntacticErrors: SyntaxError list = List.empty
-        
-        let mutable derivation: GrammarSymbol list = [ GrammarSymbol.Variable m.grammar.start ]
+
+        let mutable derivation: GrammarSymbol list = [ GrammarSymbol.Variable x.grammar.start ]
         let mutable derivationTable: DerivationTable = List.empty
-        
+
         let mutable shouldContinue = true
-        
+
         while shouldContinue do
             match List.tryLast stack with
             | Some symbol ->
@@ -137,42 +138,42 @@ type Parser =
                         if tokenType <> FollowType.DollarSign then
                             lastToken <- Some token
                             token <- tokenIter.next() |> Option.get
-                        else shouldContinue <- false
+                        else
+                            shouldContinue <- true
                     else
                         let (startToken, errorTerminal) = (token, terminal)
                         while tokenType <> FollowType.Terminal terminal.case && Option.isSome (tokenTypeIter.peek()) do
                             tokenType <- tokenTypeIter.next() |> Option.get
                             if tokenType = FollowType.DollarSign then
-                                syntacticErrors <- syntacticErrors @ [ WrongTerminal (startToken, errorTerminal, None) ]
+                                syntacticErrors <- syntacticErrors @ [ WrongTerminal(startToken, errorTerminal, None) ]
                                 shouldContinue <- false
                             if shouldContinue then
                                 lastToken <- Some token
                                 token <- tokenIter.next() |> Option.get
-                        
-                        syntacticErrors <- syntacticErrors @ [ WrongTerminal (startToken, errorTerminal, Some (token.location)) ]
+
+                        syntacticErrors <- syntacticErrors @ [ WrongTerminal(startToken, errorTerminal, Some(token.location)) ]
                 | Variable variable ->
-                    let productionMaybe = m.get variable tokenType
+                    let productionMaybe = x.get variable tokenType
 
                     match productionMaybe with
                     | Some production ->
                         List.pop &stack |> ignore
-                        
+
                         for symbol in List.rev production.rhs do
-                            if symbol <> GrammarSymbol.Epsilon then
-                                stack <- stack @ [ ParserSymbol.fromGrammarSymbol symbol ]
-                            
+                            if symbol <> GrammarSymbol.Epsilon then stack <- stack @ [ ParserSymbol.fromGrammarSymbol symbol ]
+
                         derivationTable <- derivationTable @ [ (derivation, Some production) ]
-                        
+
                         match derivation
-                            |> List.indexed
-                            |> List.tryFind (fun (_, e: GrammarSymbol) -> e.isVariable) with
-                        | Some (position, var) ->
-                            if var <> GrammarSymbol.Variable (production.lhs) then
+                              |> List.indexed
+                              |> List.tryFind (fun (_, e: GrammarSymbol) -> e.isVariable) with
+                        | Some(position, var) ->
+                            if var <> GrammarSymbol.Variable(production.lhs) then
                                 shouldContinue <- false
                                 syntacticErrors <- syntacticErrors @ [ WrongVariable "PANIC: Variable found is not the same as production.lhs!" ]
-                        
-                            List.remove position &derivation 
-                            
+
+                            List.remove position &derivation
+
                             for symbol in List.rev production.rhs do
                                 match symbol with
                                 | GrammarSymbol.Variable variable ->
@@ -185,37 +186,35 @@ type Parser =
                             syntacticErrors <- syntacticErrors @ [ WrongVariable "PANIC: No variable found in derivation" ]
                     | None ->
                         if tokenType = FollowType.DollarSign then
-                            syntacticErrors <- syntacticErrors @ [ NotInTableButInFollow (token, variable, false) ]
+                            syntacticErrors <- syntacticErrors @ [ NotInTableButInFollow(token, variable, false) ]
                             shouldContinue <- false
-                        else if Set.contains tokenType m.followSets.[variable] then
-                            syntacticErrors <- syntacticErrors @ [ NotInTableButInFollow (token, variable, true) ]
+                        else if Set.contains tokenType x.followSets.[variable] then
+                            syntacticErrors <- syntacticErrors @ [ NotInTableButInFollow(token, variable, true) ]
                             tokenType <- tokenTypeIter.next() |> Option.get
                             lastToken <- Some token
                             token <- tokenIter.next() |> Option.get
                         else
                             let (startToken, errorVariable) = (token, variable)
-                            syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow (startToken, errorVariable, Some (token.location)) ]
+                            syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow(startToken, errorVariable, Some(token.location)) ]
                             let mutable shouldContinueHere = true
-                            while shouldContinueHere && m.get variable tokenType |> Option.isNone do
+                            while shouldContinueHere && x.get variable tokenType |> Option.isNone do
                                 tokenType <- tokenTypeIter.next() |> Option.get
                                 if tokenType = FollowType.DollarSign then
-                                    syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow (token, errorVariable, None) ]
+                                    syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow(token, errorVariable, None) ]
                                     shouldContinueHere <- false
                                     shouldContinue <- false
                                 if shouldContinueHere then
                                     lastToken <- Some token
                                     token <- tokenIter.next() |> Option.get
-                                    
                             if shouldContinue then
-                                syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow (startToken, errorVariable, Some (token.location)) ]
+                                syntacticErrors <- syntacticErrors @ [ NotInTableNorInFollow(startToken, errorVariable, Some(token.location)) ]
                 | SemanticAction semanticAction ->
                     match semanticAction with
                     | Data ->
                         tokenStack <- tokenStack @ [ Option.get lastToken ]
                     | EndProgram ->
                         List.pop &stack |> ignore
-                        if tokenType <> FollowType.DollarSign then
-                            tokenIter.items <- tokenIter.items @ [ token ] // TODO: Hack af
+                        if tokenType <> FollowType.DollarSign then tokenIter.items <- tokenIter.items @ [ token ] // TODO: Hack af
                         shouldContinue <- false
                     | _ ->
                         match ast.makeNode (&semanticStack, &tokenStack, semanticAction) with
@@ -226,60 +225,117 @@ type Parser =
                     shouldContinue <- false
             | None ->
                 shouldContinue <- false
-        
+
         for newToken in tokenIter.rest() do
             syntacticErrors <- syntacticErrors @ [ TokenAfterMain newToken ]
-         
-        ast.root <- List.pop &semanticStack
-        
+
+        ast.index <- List.pop &semanticStack
+
         derivationTable <- derivationTable @ [ (derivation, None) ]
-        
-        Ok (ast, derivationTable, syntacticErrors)
 
-    member self.sanitizeTokensAndParse (tokens: Lexer.Token list) =
+        Ok(ast, derivationTable, syntacticErrors)
+
+    member x.sanitizeTokensAndParse (tokens: Token list) =
         let sanitizedTokens = Lexer.sanitizeTokens tokens
-        self.parse(sanitizedTokens)
+        x.parse (sanitizedTokens)
 
-let firstSetsAsString (firstSets: Map<Language.Variable, FirstSet>): string =
-    let mutable str = ""
-    for KeyValue(lhs, rhs) in firstSets do
-        str <- str + lhs.ToString() + ": {"
-        for symbol in rhs do
-            str <- str + " " + symbol.ToString()
-        str <- str + " }\n"
-    str
+[<RequireQualifiedAccess>]
+module Parser =
+    open FSharpPlus
 
-let followSetsAsString (followSets: Map<Language.Variable, FollowSet>): string =
-    let mutable str = ""
-    for KeyValue(lhs, rhs) in followSets do
-        str <- str + lhs.ToString() + ": {"
-        for symbol in rhs do
-            str <- str + " " + symbol.ToString()
-        str <- str + " }\n"
-    str
-    
-let parserTableAsString (parserTable: ParserTable) =
-    let mutable str = ""
-    for KeyValue((variable, terminal), n) in parserTable do
-        str <- str + "(" + variable.ToString() + ", " + terminal.ToString() + "): " + string n + "\n"
-    str
-    
-let derivationTableAsString (derivationTable: DerivationTable) =
-    let mutable str = ""
-    for (grammarSymbols, productionMaybe) in derivationTable do
-        let production = if Option.isSome productionMaybe then (productionMaybe |> Option.get).ToString() else ""
-        let symbols = List.map (fun e -> e.ToString()) grammarSymbols |> String.concat " " 
-        str <- str + "[" + production + "]: \n\t" + symbols + "\n\n"
-    str
-    
-let syntaxErrorsAsString (syntaxErrors: SyntaxError list) =
-    let mutable str = ""
-    for syntaxError in syntaxErrors do
-        str <- str  + syntaxError.ToString() + "\n"
-    str
-    
-let astAsString (ast: AST) =
-    let mutable str = ""
-    for node in ast.nodes do
-        str <- str  + node.ToString() + "\n"
-    str
+    let drawFirstSets (firstSets: Map<NonTerminal, FirstSet>): string =
+        let mutable str = ""
+        for KeyValue(lhs, rhs) in firstSets do
+            str <- str + show lhs + ": {"
+            for symbol in rhs do
+                str <- str + " " + show symbol
+            str <- str + " }\n"
+        str
+
+    let drawFollowSets (followSets: Map<NonTerminal, FollowSet>): string =
+        let mutable str = ""
+        for KeyValue(lhs, rhs) in followSets do
+            str <- str + show lhs + ": {"
+            for symbol in rhs do
+                str <- str + " " + show symbol
+            str <- str + " }\n"
+        str
+
+    let drawParseTable (cfg: Grammar) (table: Result<ParseTable, GrammarError>) =
+        let mutable tableWithProductions: Map<NonTerminal * FollowType, Production> = Map.empty
+        match table with
+        | Ok parserTable ->
+            for KeyValue((variable, terminal), n) in parserTable do
+                tableWithProductions <- Map.add (variable, terminal) (cfg.productions.[n]) tableWithProductions
+        | _ -> ignore()
+
+        let okFromResult (result: Result<'A, 'E>) =
+            match result with
+            | Ok success -> success
+            | Error _ -> failwith "okFromResult: Tried to extract Ok value from Error"
+
+        let mutable items = List.empty
+        for KeyValue((variable, terminal), production) in tableWithProductions do
+            items <-
+                items
+                @ [ ((String.toUpper << show) variable,
+                     (String.toLower << show << okFromResult << TokenType.fromString << String.toLower << show) terminal), production ]
+
+        let comparer (item1: (string * string) * Production) (item2: (string * string) * Production) =
+            let v1 =
+                item1
+                |> fst
+                |> fst
+
+            let t1 =
+                item1
+                |> fst
+                |> snd
+
+            let v2 =
+                item2
+                |> fst
+                |> fst
+
+            let t2 =
+                item2
+                |> fst
+                |> snd
+
+            if v1 < v2 then -1
+            elif v1 > v2 then 1
+            elif t1 < t2 then -1
+            elif t1 > t2 then 1
+            else 0
+
+        items <- List.sortWith comparer items
+
+        let mutable str = ""
+        for ((variable, terminal), production) in items do
+            str <- str + "(" + variable + ", " + terminal + "): " + show production + "\n"
+        str
+
+    let drawDerivationTable (derivationTable: DerivationTable) =
+        let mutable str = ""
+        for (grammarSymbols, productionMaybe) in derivationTable do
+            let production =
+                if Option.isSome productionMaybe then show (productionMaybe |> Option.get) else ""
+
+            let symbols = List.map (fun e -> show e) grammarSymbols |> String.concat " "
+            str <- str + "[" + production + "]: \n\t" + symbols + "\n\n"
+        str
+
+    let drawSyntaxErrors (syntaxErrors: SyntaxError list) =
+        let mutable str = ""
+        for syntaxError in syntaxErrors do
+            str <- str + show syntaxError + "\n"
+        str
+
+    let drawIndexedAst (ast: IndexedAst) =
+        let mutable str = ""
+        for node in ast.nodes do
+            str <- str + show node + "\n"
+        str
+
+    let drawAstErrors (errors: ASTError list) =
+        String.concat "\n" (List.map show errors)
