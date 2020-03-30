@@ -190,6 +190,15 @@ module Polynomial =
                   code = Some "f1 = 2.0;"
                   line = Some 75 } "grammar.grm"
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "TypeMismatch" ] @>
+
+    [<Fact>]
+    let ```localFloatVar = undeclaredVar; undeclaredVar = memberFloatVar;`, [UndeclaredLocalVariable; UndeclaredLocalVariable]``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "result = c; c = a;"
+                  line = Some 33 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable"; "UndeclaredLocalVariable" ] @>
 module MinProg =
     [<Fact>]
     let ``Given minprog source, then no semantic errors expected``() =
@@ -291,3 +300,12 @@ module BubbleSort =
                   code = Some "arr[1] = arr[1];"
                   line = Some 54 } "grammar.grm"
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ ] @>
+
+    [<Fact>]
+    let ```arr[1][1][5] = arr; arr = unknownVar;` then [ArrayDimensionMismatch; UndeclaredLocalVariable]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1][1][5] = arr; arr = unknownVar;"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch"; "UndeclaredLocalVariable" ] @>

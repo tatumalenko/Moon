@@ -275,19 +275,41 @@ module SymbolTable =
         | [] -> mapper symbolTable
         | xs -> { mapper symbolTable with entries = List.map mapper xs }
 
+//    let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
+//        let rec f (x: SymbolTable option): SymbolTable option =
+//            match x.map (fun it -> it.entries), predicate x with
+//            | _, true -> x
+//            | None, _ -> None
+//            | Some xs, false -> List.tryHead (List.choose id (List.map (f << Some) xs))
+//        f (Some symbolTable)
+
     let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
         let rec f (x: SymbolTable option): SymbolTable option =
-            match x.map (fun it -> it.entries), predicate x with
-            | _, true -> x
-            | None, _ -> None
-            | Some xs, false -> List.tryHead (List.choose id (List.map (f << Some) xs))
+            match x.map (fun it -> it.entries, predicate it) with
+            | Some(_, true) -> x
+            | Some (xs,  false) -> List.tryHead (List.choose id (List.map (f << Some) xs))
+            | None -> None
         f (Some symbolTable)
 
     let tryFindClassTable (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable option =
         let localScope = findSymbolTable tree symbolTable
         match localScope.map (fun it -> it.kind) with
-        | Some (SymbolKind.MemberFunction(returnType, paramTypes, classType)) -> tryFind (fun st -> st.map (fun it -> it.name.lexeme = classType.className) @? false) symbolTable
+        | Some (SymbolKind.MemberFunction(returnType, paramTypes, classType)) -> tryFind (fun st -> st.name.lexeme = classType.className) symbolTable
         | _ -> None
+
+    let tryFindTableWithName (idSyntaxToken: Token) (symbolTable: SymbolTable) =
+//            let rec f x =
+//                let idSyntaxLexeme = idSyntaxToken.lexeme
+//
+//                match x with
+//                | Some st when st.name.lexeme = idSyntaxLexeme -> x
+//                | Some st when st.name.lexeme <> idSyntaxLexeme ->
+//                    let xs = List.map (f << Some) st.entries
+//                    let x = List.tryFind Option.isSome xs @? None
+//                    x
+//                | _ -> None
+//            f (Some symbolTable)
+            tryFind (fun st -> st.name.lexeme = idSyntaxToken.lexeme) symbolTable
 
     let tokenFromSyntaxIdNode (node: Tree<SyntaxElement>) =
         let syntaxId = node.root
@@ -658,8 +680,11 @@ module SymbolTable =
         |> String.concat "\n"
 
 type SymbolTable with
-    member x.findLocalSymbolTable symbolTree =
+    member x.tryFindLocalTable symbolTree =
         SymbolTable.findSymbolTable symbolTree x
 
-    member x.findClassSymbolTable symbolTree =
+    member x.tryFindClassTable symbolTree =
         SymbolTable.tryFindClassTable symbolTree x
+
+    member x.tryFindTableWithName token =
+        SymbolTable.tryFindTableWithName token x

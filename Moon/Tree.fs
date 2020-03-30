@@ -95,20 +95,17 @@ module Tree =
             | t -> create t.root (List.map f t.children)
         f tip
 
-//    let rec visit state dispatchMap keyResolver tree =
-//        let visitor = Map.tryFind (keyResolver tree) dispatchMap
-//        (visitor.map (fun it -> it state tree) @? state) @ List.flatMap (visit state dispatchMap keyResolver) tree.children
-    let rec visit (acc, parentType) dispatchMap keyResolver tree =
+    let rec visit (state: _ list) dispatchMap keyResolver tree =
         let visitor = Map.tryFind (keyResolver tree) dispatchMap
 
-        let (currentErrors, currentType) = (visitor.map (fun it -> it ([], parentType) tree) @? (acc, parentType))
+        let currentErrors = (visitor.map (fun it -> it state tree) @? state)
 
         let folder stateAccumulator childTree =
-            let (childErrors, childType) = visit ([], currentType) dispatchMap keyResolver childTree
-            (fst stateAccumulator @ childErrors, childType)
+            let childErrors = visit [] dispatchMap keyResolver childTree
+            (stateAccumulator @ childErrors)
 
-        let (cumulativeChildErrors, rightMostDirectChildType) = List.fold folder ([], None) tree.children
-        (currentErrors @ cumulativeChildErrors, currentType)
+        let cumulativeChildErrors = List.fold folder [] tree.children
+        currentErrors @ cumulativeChildErrors
 
     let showRoot tree = show tree.root
 
