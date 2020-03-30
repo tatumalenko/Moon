@@ -24,6 +24,7 @@
         <PackageReference Include="Argu" Version="6.0.0" />
         <PackageReference Include="FSharpPlus" Version="1.1.0-RC3" />
         <PackageReference Include="FSharpx.Collections" Version="2.1.2" />
+        <PackageReference Include="FSharpx.Extras" Version="2.3.2" />
     </ItemGroup>
 
 </Project>

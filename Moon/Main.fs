@@ -140,22 +140,22 @@ let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<C
         | _ -> ()
     | Error _ -> ()
 
-let processCompileRegexCmd (parser: ArgumentParser<CommandArgs>) =
-    let tokenTypeCaseNames = Utils.unionCaseNames<TokenType>
-    let tokenTypes = tokenTypeCaseNames |> Set.map Utils.makeUnionCase<TokenType>
-    let mapTokenTypeToPattern (tokenType: TokenType) = (tokenType, tokenType.pattern)
-    let tokenTypesAndPatterns = Set.map mapTokenTypeToPattern tokenTypes |> Array.ofSeq
-    let regexes =
-        tokenTypesAndPatterns
-        |> Array.map (fun (tokenType, pattern) ->
-            RegexCompilationInfo(
-                pattern,
-                RegexOptions.Compiled ||| RegexOptions.ExplicitCapture,
-                Utils.unionCaseName tokenType,
-                "Moon.DFA",
-                true))
-
-    Regex.CompileToAssembly(regexes, AssemblyName("Moon.DFA, Version=1.0.0.1001, Culture=neutral, PublicKeyToken=null"))
+//let processCompileRegexCmd (parser: ArgumentParser<CommandArgs>) =
+//    let tokenTypeCaseNames = Utils.unionCaseNames<TokenType>
+//    let tokenTypes = tokenTypeCaseNames |> Set.map Utils.makeUnionCase<TokenType>
+//    let mapTokenTypeToPattern (tokenType: TokenType) = (tokenType, tokenType.pattern)
+//    let tokenTypesAndPatterns = Set.map mapTokenTypeToPattern tokenTypes |> Array.ofSeq
+//    let regexes =
+//        tokenTypesAndPatterns
+//        |> Array.map (fun (tokenType, pattern) ->
+//            RegexCompilationInfo(
+//                pattern,
+//                RegexOptions.Compiled ||| RegexOptions.ExplicitCapture,
+//                Utils.unionCaseName tokenType,
+//                "Moon.DFA",
+//                true))
+//
+//    Regex.CompileToAssembly(regexes, AssemblyName("Moon.DFA, Version=1.0.0.1001, Culture=neutral, PublicKeyToken=null"))
 
 [<EntryPoint>]
 let main argv =
@@ -167,6 +167,6 @@ let main argv =
     match args.[0] with
     | Lex lexer -> processLexCmd lexer parser args
     | Parse parse -> processParseCmd parse parser args
-    | CompileRegex -> processCompileRegexCmd parser
+    | CompileRegex -> () //processCompileRegexCmd parser
 
     0

@@ -2,19 +2,55 @@ namespace global
 
 open FSharpPlus
 
+
 [<AutoOpen>]
 module Extensions =
-    let inline (|||) (a: 'a option) b =
-        if Option.isSome a then Option.get a else b
+    let inline (@?) x v =
+        match x with
+        | Some y -> y
+        | None -> v
 
-    type Option<'E> with
-        member x.map f = Option.map f x
+    let inline (@!) x m =
+        match x with
+        | Some v -> v
+        | None -> failwith m
+
+    let inline (<?>) x f =
+        match x with
+        | Some v -> Some (f v)
+        | None -> None
+
+    let inline (~%) (a, b) =
+        match a, b with
+        | Some a, Some b -> Some (a, b)
+        | _ -> None
+
+    let inline trd (a, b, c) = c
+
+    type Option<'a> with
+        member inline x.map (f: _ -> _) = Option.map f x
+        member inline x.flatten (a, b) =
+            match a, b with
+            | Some a, Some b -> Some (a, b)
+            | _ -> None
+
+    let (|Int|_|) (str: string) =
+        match System.Int32.TryParse str with
+        | true, int -> Some int
+        | _ -> None
+
+    let (|Double|_|) (str: string) =
+        match System.Double.TryParse str with
+        | true, float -> Some float
+        | _ -> None
 
     type Seq =
         static member safeSkip (num: int) (source: seq<'a>): seq<'a> =
             seq {
                 use e = source.GetEnumerator()
                 let idx = ref 0
+                let aa = Some 1 @? 2
+                let bb = Some 1 @! "geey"
                 let loop = ref true
                 while !idx < num && !loop do
                     if not (e.MoveNext()) then loop := false

@@ -259,14 +259,14 @@ list (a,b,c);
                 { line = 14
                   column = 13 } } ]
 
-    Utils.write
-        (tokens
-         |> List.map (fun e -> show e)
-         |> String.concat "\n") (Utils.makePath "tokens.txt")
-    Utils.write
-        (expected
-         |> List.map (fun e -> show e)
-         |> String.concat "\n") (Utils.makePath "expected.txt")
+//    Utils.write
+//        (tokens
+//         |> List.map (fun e -> show e)
+//         |> String.concat "\n") (Utils.makePath "tokens.txt")
+//    Utils.write
+//        (expected
+//         |> List.map (fun e -> show e)
+//         |> String.concat "\n") (Utils.makePath "expected.txt")
 
     tokens |> should equal expected
 

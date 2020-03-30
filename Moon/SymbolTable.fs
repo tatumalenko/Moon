@@ -1,87 +1,293 @@
 namespace Moon
 
-type SymbolKind =
-    | Variable
-    | Parameter
-    | Function
-    | Class
-    | ProgKind
-
 [<StructuredFormatDisplay("{show}")>]
 type SymbolType =
-    | VariableType of Token * int list option // type, dim[]
-    | FreeFunctionType of Token * SymbolType list // returnType, paramType[]
-    | ClassFunctionType of Token * SymbolType list * Token // returnType, paramType[], classType
-    | ClassType of Token list // inheritance chain
+    | Integer of int list
+    | Float of int list
+    | Class of string * int list
+    | Void
     | Nil
-    member x.show =
+
+    member x.withoutDimensionality =
         match x with
-        | VariableType(token, dimensions) ->
-            show token.lexeme + match dimensions with
-                                | Some [] -> "[]"
-                                | Some array -> show array
-                                | None -> ""
-        | FreeFunctionType(token, symbolTypes) ->
-            "(" + String.concat ", " (List.map show symbolTypes) + "): " + show token.lexeme
-        | ClassFunctionType(token, symbolTypes, idToken) ->
-            "(" + String.concat ", " (List.map show symbolTypes) + "): " + show token.lexeme + " [" + show idToken.lexeme + "]"
-        | ClassType tokens ->
-            if tokens = []
-            then ""
-            else String.concat ", " (List.map (fun (t: Token) -> t.lexeme) tokens)
+        | Integer _ -> Integer []
+        | Float _ -> Float []
+        | Class(className, _) -> Class(className, [])
+        | Void
+        | Nil -> failwith "SymbolType.dimensions: Tried to get dimensions of non-Integer, Float, or Class SymbolType"
+
+    member x.dimensions =
+        match x with
+        | Integer dimensions
+        | Float dimensions
+        | Class(_, dimensions) -> dimensions
+        | Void
+        | Nil -> failwith "SymbolType.dimensions: Tried to get dimensions of non-Integer, Float, or Class SymbolType"
+
+    member x.className =
+        match x with
+        | Class(className, _) -> className
+        | Integer _
+        | Float _
+        | Void
+        | Nil -> failwith "SymbolType.className: Tried to get name of non-Class SymbolType DU"
+
+    static member make (typeToken: Token) (dimensions: int list option) =
+        match typeToken.lexeme with
+        | "integer" -> (dimensions.map (fun xs -> Integer xs)) @! "SymbolType.make: `typeToken.lexeme` = 'integer' but `dimensions` given is None"
+        | "float" -> (dimensions.map (fun xs -> Float xs)) @! "SymbolType.make: `typeToken.lexeme` = 'float' but `dimensions` given is None"
+        | "void" -> Void
+        | Int _ -> Integer []
+        | Double _ -> Float []
+        | className ->
+            (dimensions.map (fun xs -> Class(className, xs)))
+            @! ("SymbolType.make: `typeToken.lexeme` = '" + className + "' but `dimensions` given is None")
+
+    member x.fakeToken =
+        let fakeLexeme =
+            match x with
+            | Integer _ -> "integer"
+            | Float _ -> "float"
+            | Class(className, _) -> className
+            | Void -> "void"
+            | Nil -> ""
+        { tokenType = TokenType.Id fakeLexeme
+          location =
+              { line = 0
+                column = 0 } }
+
+    member x.dimensionality =
+        List.length x.dimensions
+
+    member inline x.show =
+        match x with
+        | Integer dimensions -> "integer" + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
+        | Float dimensions -> "float" + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
+        | Class(className, dimensions) -> className + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
+        | Void -> "void"
         | Nil -> ""
 
 [<StructuredFormatDisplay("{show}")>]
-type SymbolTable =
-    { symbolName: Token
-      symbolKind: SymbolKind
-      symbolType: SymbolType
-      entries: SymbolTable list
-      tree: Tree<SyntaxElement> }
-    member x.show =
-        match x.symbolType with
-        | ClassFunctionType(token, symbolTypes, classToken) ->
-            show x.symbolKind + " " + show classToken.lexeme + "." + x.symbolName.lexeme + "("
-            + String.concat ", " (List.map (fun (st: SymbolType) -> st.show) symbolTypes) + "): " + show token.lexeme
-        | _ ->
-            show x.symbolKind + " " + x.symbolName.lexeme + if show x.symbolType = "" then "" else ": " + show x.symbolType
+type SymbolKind =
+    | Variable of SymbolType
+    | Parameter of SymbolType
+    | FreeFunction of SymbolType * SymbolType list // returnType, paramType[]
+    | MemberFunction of SymbolType * SymbolType list * SymbolType // returnType, paramType[], classType
+    | Class of SymbolType list // superType[]
+    | ProgKind
+    | Nil
+
+    member x.withNoDimensionality =
+        match x with
+        | Variable symbolType -> Variable symbolType.withoutDimensionality
+        | Parameter symbolType -> Parameter symbolType.withoutDimensionality
+        | FreeFunction (symbolType, _) -> FreeFunction (symbolType.withoutDimensionality, [])
+        | MemberFunction (symbolType, _, superTypes) -> MemberFunction (symbolType.withoutDimensionality, [], superTypes)
+        | Class _
+        | ProgKind
+        | Nil -> x
+
+    member x.symbolType =
+        match x with
+        | Variable symbolType
+        | Parameter symbolType -> Some symbolType
+        | FreeFunction _ -> x.returnType
+        | MemberFunction _ -> x.returnType
+        | Class _ -> None
+        | ProgKind -> None
+        | Nil -> None
+
+    member x.returnType =
+        match x with
+        | FreeFunction(symbolType, _) -> Some symbolType
+        | MemberFunction(symbolType, _, _) -> Some symbolType
+        | Variable _
+        | Parameter _
+        | Class _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.returnType: Tried to access returnType of non-Function SymbolKind"
+
+    member x.paramTypes =
+        match x with
+        | FreeFunction(_, symbolTypes) -> symbolTypes
+        | MemberFunction(_, symbolTypes, _) -> symbolTypes
+        | Variable _
+        | Parameter _
+        | Class _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.paramTypes: Tried to access paramTypes of non-Function SymbolKind"
+
+    member x.superTypes =
+        match x with
+        | Class superTypes -> superTypes
+        | FreeFunction _
+        | MemberFunction _
+        | Variable _
+        | Parameter _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.returnType: Tried to access superTypes of non-Class SymbolKind"
+
+    member inline x.show =
+        match x with
+        | Variable symbolType -> show symbolType
+        | Parameter symbolType -> show symbolType
+        | FreeFunction(returnType, paramTypes) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
+        | MemberFunction(returnType, paramTypes, _) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
+        | Class superTypes ->
+            if superTypes = []
+            then ""
+            else ":" + String.concat ", " (List.map show superTypes)
+        | ProgKind -> "Prog"
+        | Nil -> ""
+
 
 [<StructuredFormatDisplay("{show}")>]
-type SymbolElement =
+type SymbolTable =
+    { name: Token
+      kind: SymbolKind
+      entries: SymbolTable list
+      tree: Tree<SyntaxElement>
+      globalTree: Tree<SymbolElement> option }
+
+    member x.symbolTree =
+        x.globalTree @! "SymbolTable.symbolTree: Tried to get `globalTree` but was None"
+
+    member x.withNoDimensionality =
+        { x with kind = x.kind.withNoDimensionality }
+
+    member x.symbolType =
+        match x.kind with
+        | Variable symbolType
+        | Parameter symbolType -> Some symbolType
+        | FreeFunction(_, _) -> x.returnType
+        | MemberFunction(_, _, _) -> x.returnType
+        | Class _ -> None
+        | ProgKind -> None
+        | Nil -> None
+
+    member x.returnType =
+        match x.kind with
+        | FreeFunction(symbolType, _) -> Some symbolType
+        | MemberFunction(symbolType, _, _) -> Some symbolType
+        | Variable _
+        | Parameter _
+        | Class _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.returnType: Tried to access returnType of non-Function SymbolKind"
+
+    member x.paramTypes =
+        match x.kind with
+        | FreeFunction(_, symbolTypes) -> symbolTypes
+        | MemberFunction(_, symbolTypes, _) -> symbolTypes
+        | Variable _
+        | Parameter _
+        | Class _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.paramTypes: Tried to access paramTypes of non-Function SymbolKind"
+
+    member x.superTypes =
+        match x.kind with
+        | Class superTypes -> superTypes
+        | FreeFunction _
+        | MemberFunction _
+        | Variable _
+        | Parameter _
+        | ProgKind
+        | Nil -> failwith "SymbolTable.returnType: Tried to access superTypes of non-Class SymbolKind"
+
+    member inline x.show =
+        match x.kind with
+        | Variable _ -> "Variable " + x.name.lexeme + ": " + show x.kind
+        | Parameter _ -> "Parameter " + x.name.lexeme + ": " + show x.kind
+        | FreeFunction(_, _) -> "Function " + x.name.lexeme + show x.kind
+        | MemberFunction(_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + show x.kind
+        | Class _ -> "Class " + x.name.lexeme + show x.kind
+        | ProgKind -> "Prog"
+        | Nil -> x.name.lexeme
+
+
+
+and [<StructuredFormatDisplay("{show}")>]
+ SymbolElement =
     { syntaxElement: SyntaxElement
       symbolEntry: SymbolTable option }
 
-    member x.show =
-        if Option.isSome x.symbolEntry
-        then show x.syntaxElement + ", " + show (Option.get x.symbolEntry)
-        else show x.syntaxElement
+    member x.syntaxToken = x.syntaxElement.token @! "SymbolElement.syntaxToken: Tried to get `syntaxElement.token` but was None"
 
-    member x.symbolType = x.symbolEntry.map (fun se -> se.symbolType)
+    member x.symbolType = x.symbolEntry.map (fun it -> it.symbolType @! "SymbolElement.symbolType: Tried to get `symbolType` but was None")
+
+    member inline x.show =
+        show x.syntaxElement + (x.symbolEntry.map (fun it ->
+                                    if show it <> "" then ", " + show it else "")
+                                @? "")
 
 [<RequireQualifiedAccess>]
 module SymbolTable =
-    let dimensions symbolType =
-        match symbolType with
-        | VariableType(_, dimensionsMaybe) -> dimensionsMaybe ||| []
-        | _ -> failwith "Tried to get dimensions of non VariableType SymbolType"
+//    let rec findSymbolTables (localScopes: SymbolTable list) treeToFind currentTree =
+//        let tables =
+//            match currentTree.root.syntaxElement.syntaxKind with
+//            | Prog -> (currentTree.root.symbolEntry @! "ProgKind has no symbolEntry") :: localScopes
+//            | FuncDef -> (currentTree.root.symbolEntry @! "FuncDef has no symbolEntry") :: localScopes
+//            | MainFuncBody -> (currentTree.root.symbolEntry @! "MainFuncBody has no symbolEntry") :: localScopes
+//            | _ -> localScopes
+//        if treeToFind = currentTree
+//        then tables
+//        else (List.flatMap (findSymbolTables [] treeToFind) currentTree.children) @ tables
+//    let rec findSymbolTables (localScopes: SymbolTable list) treeToFind currentTree =
+//        let tables =
+//            match currentTree.root.syntaxElement.syntaxKind with
+//            | Prog -> (currentTree.root.symbolEntry @! "ProgKind has no symbolEntry") :: []
+//            | FuncDef -> (currentTree.root.symbolEntry @! "FuncDef has no symbolEntry") :: []
+//            | MainFuncBody -> (currentTree.root.symbolEntry @! "MainFuncBody has no symbolEntry") :: []
+//            | _ -> localScopes
+//        if treeToFind = currentTree
+//        then tables
+//        else
+//            let ts = (List.flatMap (findSymbolTables [] treeToFind) currentTree.children)
+//            if List.length ts > 1 || List.length tables > 1
+//            then printfn "hey"
+//            else ()
+//            ts @ tables
+    let rec findSymbolTables (localScope: SymbolTable option) treeToFind currentTree =
+        let localScope =
+            match currentTree.root.syntaxElement.syntaxKind with
+            | Prog -> (currentTree.root.symbolEntry)
+            | FuncDef -> (currentTree.root.symbolEntry)
+            | ClassDecl ->currentTree.root.symbolEntry
+            | MainFuncBody -> (currentTree.root.symbolEntry)
+            | _ -> localScope
+        if treeToFind = currentTree
+        then localScope
+        else
+            let localScopes = List.map (findSymbolTables localScope treeToFind) currentTree.children
+            if List.length (List.choose id localScopes) > 1
+            then printfn "hey"
+            else ()
+            List.choose id localScopes |> List.tryHead
 
-    let symbolTypeWithId (symbolTable: SymbolTable) (idTokenMaybe: Token option) =
-        match idTokenMaybe with
-        | Some idToken ->
-            let finder (nodalSymbolTable: SymbolTable) =
-                match nodalSymbolTable.symbolKind with
-                | SymbolKind.Variable
-                | SymbolKind.Parameter -> nodalSymbolTable.symbolName.lexeme = idToken.lexeme
-                | _ -> false
+    let rec findSymbolTable (treeToFind: Tree<SymbolElement>) (symbolTable: SymbolTable) =
+        let localScope = findSymbolTables None treeToFind symbolTable.symbolTree
+        localScope
+        //List.tryItem 0 xs
 
-            let mapToSymbolType st = st.symbolType
-            List.tryFind finder symbolTable.entries |> Option.map mapToSymbolType
-        | None -> failwith "ABORT: Expected Some idTokenMaybe, but was None"
+    let rec map (mapper: _ -> _) (symbolTable: SymbolTable): SymbolTable =
+        match symbolTable.entries with
+        | [] -> mapper symbolTable
+        | xs -> { mapper symbolTable with entries = List.map mapper xs }
 
-    let isVariable symbolTableEntry =
-        match symbolTableEntry with
-        | Variable -> true
-        | _ -> false
+    let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
+        let rec f (x: SymbolTable option): SymbolTable option =
+            match x.map (fun it -> it.entries), predicate x with
+            | _, true -> x
+            | None, _ -> None
+            | Some xs, false -> List.tryHead (List.choose id (List.map (f << Some) xs))
+        f (Some symbolTable)
+
+    let tryFindClassTable (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable option =
+        let localScope = findSymbolTable tree symbolTable
+        match localScope.map (fun it -> it.kind) with
+        | Some (SymbolKind.MemberFunction(returnType, paramTypes, classType)) -> tryFind (fun st -> st.map (fun it -> it.name.lexeme = classType.className) @? false) symbolTable
+        | _ -> None
 
     let tokenFromSyntaxIdNode (node: Tree<SyntaxElement>) =
         let syntaxId = node.root
@@ -104,8 +310,8 @@ module SymbolTable =
         match nodeMaybe with
         | Some node ->
             let syntaxNumNodes = node.children
-            List.map (int << nameFromSyntaxIdNode) syntaxNumNodes |> Some
-        | None -> None
+            List.map (int << nameFromSyntaxIdNode) syntaxNumNodes
+        | None -> []
 
     let rec makeSymbolEntry (syntaxElementNode: Tree<SyntaxElement>): SymbolTable option * Tree<SymbolElement> =
         let syntaxElement = syntaxElementNode.root
@@ -116,7 +322,8 @@ module SymbolTable =
 
         let symbolTypesFromSyntaxFParamListNode (node: Tree<SyntaxElement>) =
             let symbolEntryAndTreePairs = List.map makeSymbolEntry node.children
-            List.map2 (fun se t -> (Option.get se).symbolType, t) (List.map fst symbolEntryAndTreePairs) (List.map snd symbolEntryAndTreePairs)
+            List.map2 (fun (se: SymbolTable option) t -> (Option.get se).symbolType, t) (List.map fst symbolEntryAndTreePairs)
+                (List.map snd symbolEntryAndTreePairs)
 
         match syntaxElement.syntaxKind with
         | VarDecl ->
@@ -125,11 +332,13 @@ module SymbolTable =
             let syntaxDimListNodeMaybe = List.tryItem 2 syntaxElementNode.children
 
             let symbolEntry =
-                { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                  symbolKind = Variable
-                  symbolType = VariableType(tokenFromSyntaxTypeNode syntaxTypeNode, intListFromSyntaxDimListNode syntaxDimListNodeMaybe)
+                { name = tokenFromSyntaxIdNode syntaxIdNode
+                  kind =
+                      Variable
+                          (SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode) (Some(intListFromSyntaxDimListNode syntaxDimListNodeMaybe)))
                   entries = []
-                  tree = syntaxElementNode }
+                  tree = syntaxElementNode
+                  globalTree = None }
 
             Some symbolEntry,
             { root =
@@ -146,11 +355,13 @@ module SymbolTable =
             let syntaxDimListNodeMaybe = List.tryItem 2 syntaxElementNode.children
 
             let symbolEntry =
-                { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                  symbolKind = Parameter
-                  symbolType = VariableType(tokenFromSyntaxTypeNode syntaxTypeNode, intListFromSyntaxDimListNode syntaxDimListNodeMaybe)
+                { name = tokenFromSyntaxIdNode syntaxIdNode
+                  kind =
+                      Parameter
+                          (SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode) (Some(intListFromSyntaxDimListNode syntaxDimListNodeMaybe)))
                   entries = []
-                  tree = syntaxElementNode }
+                  tree = syntaxElementNode
+                  globalTree = None }
             Some symbolEntry,
             { root =
                   { syntaxElement = syntaxElement
@@ -174,11 +385,11 @@ module SymbolTable =
             //let paramFParamTrees = List.map snd paramFParamEntryAndTreePairs
 
             let symbolEntry =
-                { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                  symbolKind = Function
-                  symbolType = FreeFunctionType(tokenFromSyntaxTypeNode syntaxReturnTypeNode, paramFParamTypes)
+                { name = tokenFromSyntaxIdNode syntaxIdNode
+                  kind = FreeFunction(SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []), List.choose id paramFParamTypes)
                   entries = paramFParamEntries
-                  tree = syntaxElementNode }
+                  tree = syntaxElementNode
+                  globalTree = None }
 
             Some symbolEntry,
             { root =
@@ -195,13 +406,13 @@ module SymbolTable =
             let syntaxMemberDeclListNode = syntaxElementNode.children.[2]
 
             let mapFuncDeclEntry entry =
-                match entry.symbolType with
-                | FreeFunctionType(token, symbolTypes) ->
-                    { symbolName = entry.symbolName
-                      symbolKind = entry.symbolKind
-                      symbolType = ClassFunctionType(token, symbolTypes, (tokenFromSyntaxTypeNode syntaxIdNode))
+                match entry.kind with
+                | FreeFunction(returnType, paramTypes) ->
+                    { name = entry.name
+                      kind = MemberFunction(returnType, paramTypes, SymbolType.Class(nameFromSyntaxIdNode syntaxIdNode, []))
                       entries = entry.entries
-                      tree = syntaxElementNode }
+                      tree = syntaxElementNode
+                      globalTree = None }
                 | _ -> entry
 
             let symbolEntryAndTreePairs = List.map makeSymbolEntry syntaxMemberDeclListNode.children
@@ -209,14 +420,18 @@ module SymbolTable =
             //let symbolTrees = List.map snd symbolEntryAndTreePairs
 
             let symbolEntry =
-                { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                  symbolKind = Class
-                  symbolType = ClassType(tokensFromSyntaxInheritListNode syntaxInheritListNode)
+                { name = tokenFromSyntaxIdNode syntaxIdNode
+                  kind =
+                      Class
+                          (tokensFromSyntaxInheritListNode syntaxInheritListNode
+                           |> List.map (fun superTypeToken -> superTypeToken.lexeme)
+                           |> List.map (fun superTypeName -> SymbolType.Class(superTypeName, [])))
                   entries =
                       symbolEntries
                       |> List.choose id
                       |> List.map mapFuncDeclEntry
-                  tree = syntaxElementNode }
+                  tree = syntaxElementNode
+                  globalTree = None }
 
             Some symbolEntry,
             { root =
@@ -245,14 +460,14 @@ module SymbolTable =
             match syntaxTypeOrEpsilonNode.root.syntaxKind with
             | SyntaxKind.Epsilon ->
                 let symbolEntry =
-                    { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                      symbolKind = Function
-                      symbolType =
-                          FreeFunctionType
-                              (tokenFromSyntaxTypeNode syntaxReturnTypeNode,
-                               symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map fst)
+                    { name = tokenFromSyntaxIdNode syntaxIdNode
+                      kind =
+                          FreeFunction
+                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []),
+                               symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map (Option.get << fst))
                       entries = paramFParamEntries @ funcBodyEntries
-                      tree = syntaxElementNode }
+                      tree = syntaxElementNode
+                      globalTree = None }
 
                 Some symbolEntry,
                 { root =
@@ -265,15 +480,15 @@ module SymbolTable =
                             |> List.map snd ] }
             | Type ->
                 let symbolEntry =
-                    { symbolName = tokenFromSyntaxIdNode syntaxIdNode
-                      symbolKind = Function
-                      symbolType =
-                          ClassFunctionType
-                              (tokenFromSyntaxTypeNode syntaxReturnTypeNode,
-                               symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map fst,
-                               tokenFromSyntaxTypeNode syntaxTypeOrEpsilonNode)
+                    { name = tokenFromSyntaxIdNode syntaxIdNode
+                      kind =
+                          MemberFunction
+                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []),
+                               symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map (Option.get << fst),
+                               SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeOrEpsilonNode) (Some []))
                       entries = paramFParamEntries @ funcBodyEntries
-                      tree = syntaxElementNode }
+                      tree = syntaxElementNode
+                      globalTree = None }
 
                 Some symbolEntry,
                 { root =
@@ -285,6 +500,23 @@ module SymbolTable =
                             |> List.map makeSymbolEntry
                             |> List.map snd ] }
             | syntaxKind -> failwith ("ABORT: Should of been a `Epsilon` or `Type` SyntaxKind, but was a `" + show syntaxKind + "`")
+        | Num ->
+            let symbolEntry =
+                { name = tokenFromSyntaxIdNode syntaxElementNode
+                  kind = Variable(SymbolType.make (tokenFromSyntaxTypeNode syntaxElementNode) (Some []))
+                  entries = []
+                  tree = syntaxElementNode
+                  globalTree = None }
+
+            Some symbolEntry,
+            { root =
+                  { syntaxElement = syntaxElement
+                    symbolEntry = Some symbolEntry }
+              children =
+                  List.flatten
+                      [ syntaxElementNode.children
+                        |> List.map makeSymbolEntry
+                        |> List.map snd ] }
         | _ ->
             None,
             { root =
@@ -314,15 +546,15 @@ module SymbolTable =
             let symbolMainFuncBodyEntries = List.choose (id << fst) symbolMainFuncBodyEntryAndTreePairs
 
             let symbolClassDeclListEntry =
-                { symbolName =
-                      { tokenType = TokenType.Class
+                { name =
+                      { tokenType = TokenType.Id "ClassDeclList"
                         location =
                             { line = 0
                               column = 0 } }
-                  symbolKind = Class
-                  symbolType = Nil
+                  kind = Nil
                   entries = symbolClassDeclEntries
-                  tree = syntaxClassDeclListNode }
+                  tree = syntaxClassDeclListNode
+                  globalTree = None }
 
             let symbolClassDeclListTree =
                 { root =
@@ -331,49 +563,49 @@ module SymbolTable =
                   children = List.map snd symbolClassDeclEntryAndTreePairs }
 
             let symbolFuncDefListEntry =
-                { symbolName =
-                      { tokenType = TokenType.Class
+                { name =
+                      { tokenType = TokenType.Id "FuncDefList"
                         location =
                             { line = 0
                               column = 0 } }
-                  symbolKind = Function
-                  symbolType = Nil
+                  kind = Nil
                   entries = symbolFuncDefEntries
-                  tree = syntaxFuncDefListNode }
+                  tree = syntaxFuncDefListNode
+                  globalTree = None }
 
             let symbolFuncDefListTree =
                 { root =
-                      { syntaxElement = tree.children.[0].root
+                      { syntaxElement = tree.children.[1].root
                         symbolEntry = Some symbolFuncDefListEntry }
                   children = List.map snd symbolFuncDefEntryAndTreePairs }
 
             let symbolMainFuncBodyEntry =
-                { symbolName =
-                      { tokenType = TokenType.Main
+                { name =
+                      { tokenType = TokenType.Id "MainFuncBody"
                         location =
                             { line = 0
                               column = 0 } }
-                  symbolKind = Function
-                  symbolType = Nil
+                  kind = Nil
                   entries = symbolMainFuncBodyEntries
-                  tree = syntaxMainFuncBodyNode }
+                  tree = syntaxMainFuncBodyNode
+                  globalTree = None }
 
             let symbolMainFuncBodyTree =
                 { root =
-                      { syntaxElement = tree.children.[0].root
+                      { syntaxElement = tree.children.[2].root
                         symbolEntry = Some symbolMainFuncBodyEntry }
                   children = List.map snd symbolMainFuncBodyEntryAndTreePairs }
 
             let symbolProgEntry =
-                { symbolName =
+                { name =
                       { tokenType = TokenType.Id "Prog"
                         location =
                             { line = 0
                               column = 0 } }
-                  symbolKind = ProgKind
-                  symbolType = Nil
+                  kind = Nil
                   entries = symbolClassDeclEntries @ symbolFuncDefEntries @ [ symbolMainFuncBodyEntry ]
-                  tree = tree }
+                  tree = tree
+                  globalTree = None }
 
             let symbolTree =
                 { root =
@@ -383,7 +615,9 @@ module SymbolTable =
                         symbolEntry = Some symbolProgEntry }
                   children = [ symbolClassDeclListTree; symbolFuncDefListTree; symbolMainFuncBodyTree ] }
 
-            symbolProgEntry, symbolTree
+            let symbolTable = { symbolProgEntry with globalTree = Some symbolTree }
+            let symbolEntry = { symbolTree.root with symbolEntry = Some symbolTable }
+            symbolTable, Tree.create symbolEntry symbolTree.children
         | _ -> failwith "ABORT: Tree tip root is not a Prog syntax element"
 
     let prefMid =
@@ -422,3 +656,10 @@ module SymbolTable =
         drawSymbolEntry symbolTable prefNone
         |> List.ofSeq
         |> String.concat "\n"
+
+type SymbolTable with
+    member x.findLocalSymbolTable symbolTree =
+        SymbolTable.findSymbolTable symbolTree x
+
+    member x.findClassSymbolTable symbolTree =
+        SymbolTable.tryFindClassTable symbolTree x

@@ -95,6 +95,21 @@ module Tree =
             | t -> create t.root (List.map f t.children)
         f tip
 
+//    let rec visit state dispatchMap keyResolver tree =
+//        let visitor = Map.tryFind (keyResolver tree) dispatchMap
+//        (visitor.map (fun it -> it state tree) @? state) @ List.flatMap (visit state dispatchMap keyResolver) tree.children
+    let rec visit (acc, parentType) dispatchMap keyResolver tree =
+        let visitor = Map.tryFind (keyResolver tree) dispatchMap
+
+        let (currentErrors, currentType) = (visitor.map (fun it -> it ([], parentType) tree) @? (acc, parentType))
+
+        let folder stateAccumulator childTree =
+            let (childErrors, childType) = visit ([], currentType) dispatchMap keyResolver childTree
+            (fst stateAccumulator @ childErrors, childType)
+
+        let (cumulativeChildErrors, rightMostDirectChildType) = List.fold folder ([], None) tree.children
+        (currentErrors @ cumulativeChildErrors, currentType)
+
     let showRoot tree = show tree.root
 
     let rec showTree tree =
@@ -142,5 +157,6 @@ module Tree =
 type Tree<'T> with
     static member (+) (t1: Tree<'a>, t2: Tree<'a>) = Tree.create t1.root (t1.children @ [ t2 ])
     static member (+) (t: Tree<'a>, a: 'a) = Tree.create t.root ((Tree.create a []) :: t.children)
+    static member (<<<<) (t: Tree<'a>, a: 'a) = Tree.create a t.children
     member self.show = Tree.showTree self
     member self.draw = Tree.drawTree self

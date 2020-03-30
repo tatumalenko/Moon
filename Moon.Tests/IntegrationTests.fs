@@ -94,15 +94,19 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
 
             Utils.write (Ast.makeGraphViz syntaxElementTree) syntaxTreeDotOutPath
 
-            let symbolTable, symbolTree = SymbolTable.makeSymbolTableAndTree syntaxElementTree
+            //let symbolTable, symbolTree = SymbolTable.makeSymbolTableAndTree syntaxElementTree
 
-            let symbolTableAsString = SymbolTable.drawSymbolTable symbolTable
+            let semanticErrors, symbolTable, symbolTree = Semanter.check syntaxElementTree
+
+            let symbolTableAsString =
+                SymbolTable.drawSymbolTable
+                    (symbolTree.root.symbolEntry @! "IntegrationTests.parse: Tried to get `symbolTree.root.symbolEntry` but was None")
 
             Utils.write (symbolTableAsString) symbolTableOutPath
 
             Utils.write (Ast.makeGraphViz symbolTree) symbolTreeDotOutPath
 
-            let semanticErrors = Semanter.check symbolTable
+            //let semanticErrors, resolvedType = Semanter.check symbolTree
 
             let outputs, errors =
                 Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
@@ -132,64 +136,158 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
         | InvalidVariable failure -> failwith failure
         | InvalidSymbol failure -> failwith failure
 
-[<Fact>]
-let ``Given polynomial source, then out matches expected``() =
-    parse
-        { path = "polynomial/polynomial.src"
-          code = None
-          line = None } "grammar.grm"
+module Polynomial =
+    [<Fact>]
+    let ``Given polynomial source, then no semantic errors expected``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [ ] @>
 
-[<Fact>]
-let ``Given bubblesort source, then out matches expected``() =
-    parse
-        { path = "bubblesort/bubblesort.src"
-          code = None
-          line = None } "grammar.grm"
+    [<Fact>]
+    let ```localFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "result = c;"
+                  line = Some 33 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
 
-[<Fact>]
-let ``bubblesort/bubblesort.src, `arr[7] = unknownVar;`, UnknownIdentifier``() =
-    let semanticErrors =
-        parse
-            { path = "bubblesort/bubblesort.src"
-              code = Some "arr[7] = unknownVar;"
-              line = Some 60 } "grammar.grm"
-    test <@ semanticErrors = [ UnknownIdentifier ] @>
+    [<Fact>]
+    let ```memberFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "a = c;"
+                  line = Some 33 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
 
-[<Fact>]
-let ``bubblesort/bubblesort.src, `arr = 1;`, TypeMismatch``() =
-    let semanticErrors =
-        parse
-            { path = "bubblesort/bubblesort.src"
-              code = Some "arr = 1;"
-              line = Some 60 } "grammar.grm"
-    test <@ semanticErrors = [ TypeMismatch ] @>
+    [<Fact>]
+    let ```memberFloatVar = integerLiteral;`, []``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "a = 1;"
+                  line = Some 33 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ ] @>
 
-[<Fact>]
-let ``bubblesort/bubblesort.src, `arr[1] = arr;`, TypeMismatch``() =
-    let semanticErrors =
-        parse
-            { path = "bubblesort/bubblesort.src"
-              code = Some "arr[1] = arr;"
-              line = Some 54 } "grammar.grm"
-    test <@ semanticErrors = [ TypeMismatch ] @>
+    [<Fact>]
+    let ```localClassVar = localIntegerVar;`, [TypeMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "f1 = counter;"
+                  line = Some 75 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "TypeMismatch" ] @>
 
-[<Fact>]
-let ``Given minprog source, then out matches expected``() =
-    parse
-        { path = "minprog/minProg.src"
-          code = None
-          line = None } "grammar.grm"
+    [<Fact>]
+    let ```localClassVar = floatLiteral;`, [TypeMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial.src"
+                  code = Some "f1 = 2.0;"
+                  line = Some 75 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "TypeMismatch" ] @>
+module MinProg =
+    [<Fact>]
+    let ``Given minprog source, then no semantic errors expected``() =
+        let semanticErrors =
+            parse
+                { path = "minprog/minProg.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [ ] @>
+module Conditionals =
+    [<Fact>]
+    let ``Given conditionals source, then no semantic errors expected``() =
+        let semanticErrors =
+            parse
+                { path = "conditionals/conditionals.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [ ] @>
 
-[<Fact>]
-let ``Given conditionals source, then out matches expected``() =
-    parse
-        { path = "conditionals/conditionals.src"
-          code = None
-          line = None } "grammar.grm"
+module MultRelExpr =
+    [<Fact>]
+    let ``Given multrelexpr source, then no semantic errors expected``() =
+        let semanticErrors =
+            parse
+                { path = "multrelexpr/multRelexpr.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [ ] @>
 
-[<Fact>]
-let ``Given multrelexpr source, then out matches expected``() =
-    parse
-        { path = "multrelexpr/multRelexpr.src"
-          code = None
-          line = None } "grammar.grm"
+module BubbleSort =
+    [<Fact>]
+    let ``Given bubblesort source, then out matches expected``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [ ] @>
+
+    [<Fact>]
+    let ```arr[7] = unknownVar;`, [UnknownIdentifier]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[7] = unknownVar;"
+                  line = Some 60 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
+
+    [<Fact>]
+    let ```arr = 1;`, [ArrayDimensionMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr = 1;"
+                  line = Some 60 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
+
+    [<Fact>]
+    let ```arr[1] = arr;`, [ArrayDimensionMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1] = arr;"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
+
+    [<Fact>]
+    let ```arr[1] = arr[1][1];`, [ArrayDimensionMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1] = arr[1][1];"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
+
+    [<Fact>]
+    let ```arr[1][1] = arr[1];`, [ArrayDimensionMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1][1] = arr[1];"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
+
+    [<Fact>]
+    let ```arr[1][1] = arr;`, [ArrayDimensionMismatch]``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1][1] = arr;"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
+
+    [<Fact>]
+    let ```arr[1] = arr[1];` then []``() =
+        let semanticErrors =
+            parse
+                { path = "bubblesort/bubblesort.src"
+                  code = Some "arr[1] = arr[1];"
+                  line = Some 54 } "grammar.grm"
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ ] @>

@@ -229,10 +229,7 @@ and [<StructuredFormatDisplay("{show}")>] SyntaxElement =
         { syntaxKind = syntaxKind
           token = token }
 
-    member x.show =
-        if Option.isSome x.token
-        then show (Option.get x.token).case + " (" + show (Option.get x.token).lexeme + ")"
-        else show x.syntaxKind
+    member inline x.show = x.token.map (fun it -> show it.case + " (" + it.lexeme + ")") @? show x.syntaxKind
 
 and IndexedAst =
     { mutable index: int option
