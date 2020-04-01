@@ -3,11 +3,12 @@ namespace Moon
 [<StructuredFormatDisplay("{show}")>]
 type SemanticError =
     // Symbol table phase -- creation
-    | MultiplyDeclaredLocalVariable of Token * string * string
-    | MultiplyDeclaredFreeFunction of Token * string * string // Same name and type signatures (not overloaded)
-    | MultiplyDeclaredMemberVariable of Token * string * string
-    | MultiplyDeclaredMemberFunction of Token * string * string // Same name and type signatures (not overloaded)
-    | MultiplyDeclaredClass of Token * SymbolType * SymbolType
+    | MultiplyDeclaredLocalVariable of Token * string
+    | MultiplyDeclaredParameter of Token * string
+    | MultiplyDeclaredFreeFunction of Token * string // Same name and type signatures (not overloaded)
+    | MultiplyDeclaredMemberVariable of Token * string
+    | MultiplyDeclaredMemberFunction of Token * string // Same name and type signatures (not overloaded)
+    | MultiplyDeclaredClass of Token
 
     | UndefinedFreeFunction of Token
     | UndefinedMemberVariable of Token * SymbolType
@@ -15,8 +16,8 @@ type SemanticError =
 
     // Semantic check phase -- binding and type checking
     | UndeclaredLocalVariable of Token * string
-    | UndeclaredMemberVariable of Token * SymbolType
-    | UndeclaredMemberFunction of Token * SymbolType
+    | UndeclaredMemberVariable of Token * string
+    | UndeclaredMemberFunction of Token * string
     | UndeclaredClass of Token
 
     | TypeMismatch of Token * SymbolType * SymbolType // Different types between lhs/rhs
@@ -47,7 +48,7 @@ type SemanticError =
     | OverloadedFreeFunction of Token * SymbolType * SymbolType // Warning only
     | OverloadedMemberFunction of Token * SymbolType * SymbolType // Warning only
 
-    member x.isWarning =
+    member inline x.isWarning =
         match x with
         | OverloadedFreeFunction _
         | OverloadedMemberFunction _
@@ -55,167 +56,153 @@ type SemanticError =
         | ShadowedMemberFunctionInheritance _ -> true
         | _ -> false
 
+    member inline x.level =
+        if x.isWarning then "Warning" else " Error "
+
+    member x.prefix (token: Token) =
+        "[" + x.level.PadLeft 7 + "][" + (Utils.unionCaseName x).PadRight 30 + "]["
+        + (show token.location.line + ", " + show token.location.column).PadRight 8 + "]: "
+
     member inline x.show =
         match x with
+        | MultiplyDeclaredLocalVariable(token, scopeName) -> x.prefix token + "multiple declared local variable `" + scopeName + "`"
+        | MultiplyDeclaredParameter(token, scopeName) -> x.prefix token + "multiple declared parameter `" + scopeName + "`"
+        | MultiplyDeclaredFreeFunction(token, scopeName) -> x.prefix token + "multiple declared free function `" + scopeName + "`"
+        | MultiplyDeclaredMemberVariable(token, scopeName) -> x.prefix token + "multiple declared member variable `" + scopeName + "`"
+        | MultiplyDeclaredMemberFunction(token, scopeName) -> x.prefix token + "multiple declared member function `" + scopeName + "`"
+        | MultiplyDeclaredClass(token) -> x.prefix token + "multiple declared class `" + token.lexeme+ "`"
+        | UndeclaredLocalVariable(token, scopeName) -> x.prefix token + "undeclared local variable `" + scopeName + "`"
+        | UndeclaredMemberVariable(token, scopeName) -> x.prefix token + "undeclared member variable `" + scopeName + "`"
+        | UndeclaredMemberFunction(token, scopeName) -> x.prefix token + "undeclared member function `" + scopeName + "`"
+        | UndeclaredClass(defToken) -> x.prefix defToken + "undeclared class `" + show defToken.lexeme + "`"
         | ArrayDimensionMismatch(defToken, declTable, defType) ->
-            "Array dimension mismatch: " + show (declTable.symbolType @! "") + " is not compatible with " + show defType + "\n"
-            + show defToken.location
-        | _ -> ""
-
-type SemanterSymbolTableContext =
-    { globalSymbolTable: SymbolTable
-      localSymbolTable: SymbolTable }
+            x.prefix defToken + "array used with wrong number of dimensions. `" + show (declTable.symbolType @! "") + "` is not compatible with `"
+            + String.replaceWith [ "[0]" ] [ "[]" ] (show defType) + "`"
+        | _ -> Utils.unionCaseName x
 
 [<RequireQualifiedAccess>]
 module Semanter =
     open FSharpPlus
 
-    let squareBracketCount typeStr =
-        String.split [ "[" ] typeStr
-        |> Seq.length
-        |> (-) 1
-        |> abs
-
-    let semanticErrors results =
-        let f xs =
-            match xs with
-            | Ok _ -> false
-            | Error _ -> true
-        List.filter f results
-
     [<RequireQualifiedAccess>]
     module Ast =
-        let typeAt index (symbolTree: Tree<SymbolElement>) =
-            match (List.tryItem index symbolTree.children) with
+        let tryItemType index (tree: Tree<SymbolElement>) =
+            match (List.tryItem index tree.children) with
             | Some tree -> tree.root.symbolType
             | None -> None
 
-        let rec firstToken symbolTree =
-            match symbolTree.children with
+        let rec firstToken (tree: Tree<SymbolElement>) =
+            match tree.children with
             | [] ->
-                symbolTree.root.syntaxElement.token @! "Semanter.firstToken: Tried to get `Tree<SymbolElement>.root.syntaxElement.token` but was None"
+                tree.root.syntaxToken
             | x :: _ -> firstToken x
 
     module SymbolTableVisitor =
-        let flatMapFstOfTriples xs = List.flatMap (fun (a, _, _) -> a) xs
+        let visit (table: SymbolTable) (tree: Tree<SymbolElement>) =
+            let rec dataMember (tree: Tree<SymbolElement>) =
+                // List [ One Id; One IndexList ]
+                let idTreeMaybe = List.tryItem 0 tree.children
+                let indexListTreeMaybe = List.tryItem 1 tree.children
 
-        let mapTrdOfTriples xs = List.map (fun (_, _, c) -> c) xs
+                let localTableMaybe = table.tryFindLocalTable tree
+                let classTableMaybe = table.tryFindClassTable tree
+                let classSuperTables = table.findClassTables tree
 
-        //        let rec dataMember (errors: SemanticError list) (table: SymbolTable) (tree: Tree<SymbolElement>) =
-        //                // List [ One Id; One IndexList ]
-        //                let idTreeMaybe = List.tryItem 0 tree.children
-        //                let indexListTreeMaybe = List.tryItem 1 tree.children
-        //
-        //                let localScopeTableMaybe = table.tryFindLocalTable tree
-        //                let classScopeTableMaybe = table.tryFindClassTable tree
-        //
-        //                match idTreeMaybe, indexListTreeMaybe with
-        //                | Some idTree, Some indexListTree ->
-        //                    let idEntryFromLocalScopeMaybe = localScopeTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
-        //                    let idEntryFromClassScopeMaybe = classScopeTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
-        //
-        //                    match idEntryFromLocalScopeMaybe, idEntryFromClassScopeMaybe, indexListTree.children with
-        //                    | Some idEntry, _, [] ->
-        //                        let newSymbolTree = tree <<<< { tree.root with symbolEntry = Some idEntry }
-        //                        errors, table, newSymbolTree
-        //                    | Some idEntry, _, indexTrees
-        //                    | None, Some idEntry, indexTrees ->
-        //                        let errorsAndTableAndTreeTriples = List.map (makeSymbolTableAndTree [] table) indexTrees
-        //                        let idDeclType = idEntry.symbolType @! "idEntry.symbolType was None"
-        //                        let idDefType = SymbolType.make idDeclType.fakeToken (Some (List.map (fun _ -> 0) indexTrees))
-        //
-        //                        if (idDefType.dimensionality <> idDeclType.dimensionality)
-        //                        then ArrayDimensionMismatch(Ast.firstToken idTree, idEntry, idDefType) :: flatMapFstOfTriples errorsAndTableAndTreeTriples @ errors, table, tree
-        //                        else
-        //                            let newSymbolTree = tree <<<< { tree.root with symbolEntry = Some idEntry.withNoDimensionality }
-        //                            flatMapFstOfTriples errorsAndTableAndTreeTriples @ errors, table, newSymbolTree
-        //                    | None, None, _ ->
-        //                        UndeclaredLocalVariable(idTree.root.syntaxToken, idTree.root.syntaxToken.lexeme) :: errors, table, tree
-        //                | _ -> errors, table, tree
-        //
-        //        and varElementList (errors: SemanticError list) (table: SymbolTable) (tree: Tree<SymbolElement>) =
-        //            // Single( ManyOf [ DataMember; FunctionCall ] )
-        //                let errorsAndTableAndTreeTriples = List.map (makeSymbolTableAndTree [] table) tree.children
-        //                let trees = mapTrdOfTriples errorsAndTableAndTreeTriples
-        //                let rightMostChildTree = List.tryLast trees
-        //                let newSymbolTree = rightMostChildTree <?> (fun t -> tree <<<< { tree.root with symbolEntry = t.root.symbolEntry })
-        //                flatMapFstOfTriples errorsAndTableAndTreeTriples @ errors, table, newSymbolTree @? tree
-        let rec dataMember (table: SymbolTable) (tree: Tree<SymbolElement>) =
-            // List [ One Id; One IndexList ]
-            let idTreeMaybe = List.tryItem 0 tree.children
-            let indexListTreeMaybe = List.tryItem 1 tree.children
+                match idTreeMaybe, indexListTreeMaybe with
+                | Some idTree, Some indexListTree ->
+                    let idEntryFromLocalScopeMaybe = localTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
+                    let idEntryFromClassScopeMaybe = classTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
 
-            let localScopeTableMaybe = table.tryFindLocalTable tree
-            let classScopeTableMaybe = table.tryFindClassTable tree
+                    let idEntryFromSuperScopeMaybe =
+                        List.map (fun (it: SymbolTable) -> it.tryFindTableWithName idTree.root.syntaxToken) classSuperTables
+                        |> List.choose id
+                        |> List.tryLast // Take the closest ancestor
 
-            match idTreeMaybe, indexListTreeMaybe with
-            | Some idTree, Some indexListTree ->
-                let idEntryFromLocalScopeMaybe = localScopeTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
-                let idEntryFromClassScopeMaybe = classScopeTableMaybe.map (fun it -> it.tryFindTableWithName idTree.root.syntaxToken) @? None
+                    match idEntryFromLocalScopeMaybe, idEntryFromClassScopeMaybe, idEntryFromSuperScopeMaybe, indexListTree.children with
+                    | Some idEntry, _, _, []
+                    | None, Some idEntry, _, []
+                    | None, None, Some idEntry, [] ->
+                        [], tree <<<< { tree.root with symbolEntry = Some idEntry }
+                    | Some idEntry, _, _, indexTrees
+                    | None, Some idEntry, _, indexTrees
+                    | None, None, Some idEntry, indexTrees ->
+                        let errorsAndTreePairs = List.map visitor indexTrees
+                        let trees = List.map snd errorsAndTreePairs
+                        let errors = List.flatMap fst errorsAndTreePairs
+                        let idDeclType = idEntry.symbolType @! "SymbolTableVisitor.visit.dataMember: `idEntry.symbolType` is None"
+                        let idDefType = SymbolType.make idDeclType.fakeToken (Some(List.map (fun _ -> 0) indexTrees))
 
-                match idEntryFromLocalScopeMaybe, idEntryFromClassScopeMaybe, indexListTree.children with
-                | Some idEntry, _, [] ->
-                    let newSymbolTree = tree <<<< { tree.root with symbolEntry = Some idEntry }
-                    [], table, newSymbolTree
-                | Some idEntry, _, indexTrees
-                | None, Some idEntry, indexTrees ->
-                    let errorsAndTableAndTreeTriples = List.map (makeSymbolTableAndTree table) indexTrees
-                    let idDeclType = idEntry.symbolType @! "idEntry.symbolType was None"
-                    let idDefType = SymbolType.make idDeclType.fakeToken (Some(List.map (fun _ -> 0) indexTrees))
+                        if idDefType.dimensionality <> idDeclType.dimensionality
+                        then ArrayDimensionMismatch(Ast.firstToken idTree, idEntry, idDefType) :: errors, tree
+                        else errors, tree <<<< { tree.root with symbolEntry = Some idEntry.withNoDimensionality }
+                    | None, None, None, _ ->
+                        let aa = table.findClassTables tree
+                        printfn "%s" (show aa)
+                        // Assume they are local variables until they get to `varElementList`
+                        UndeclaredLocalVariable(idTree.root.syntaxToken, idTree.root.syntaxToken.lexeme) :: [], tree
+                | _ -> [], tree
 
-                    if (idDefType.dimensionality <> idDeclType.dimensionality) then
-                        ArrayDimensionMismatch(Ast.firstToken idTree, idEntry, idDefType) :: flatMapFstOfTriples errorsAndTableAndTreeTriples, table,
-                        tree
-                    else
-                        let newSymbolTree = tree <<<< { tree.root with symbolEntry = Some idEntry.withNoDimensionality }
-                        flatMapFstOfTriples errorsAndTableAndTreeTriples, table, newSymbolTree
-                | None, None, _ ->
-                    UndeclaredLocalVariable(idTree.root.syntaxToken, idTree.root.syntaxToken.lexeme) :: [], table, tree
-            | _ -> [], table, tree
+            and varElementList (tree: Tree<SymbolElement>) =
+                // Single( ManyOf [ DataMember; FunctionCall ] )
+                let undefinedLocalMapper (error: SemanticError) =
+                    match error with
+                    | UndeclaredLocalVariable(token, scopeName) -> UndeclaredMemberVariable(token, scopeName)
+                    | _ -> error
 
-        and varElementList (table: SymbolTable) (tree: Tree<SymbolElement>) =
-            // Single( ManyOf [ DataMember; FunctionCall ] )
-            let errorsAndTableAndTreeTriples = List.map (makeSymbolTableAndTree table) tree.children
-            let trees = mapTrdOfTriples errorsAndTableAndTreeTriples
-            let rightMostChildTree = List.tryLast trees
-            let newSymbolTree = rightMostChildTree <?> (fun t -> tree <<<< { tree.root with symbolEntry = t.root.symbolEntry })
-            flatMapFstOfTriples errorsAndTableAndTreeTriples, table, newSymbolTree @? tree
+                let errorAndTreePairsMapper (idx: int, (errors: SemanticError list, tree: Tree<SymbolElement>)) =
+                    match idx, errors, tree with
+                    | 0, [], _ -> []
+                    | _, xs, _ -> List.map undefinedLocalMapper xs
 
-        and makeSymbolTableAndTree (table: SymbolTable) (tree: Tree<SymbolElement>) =
-            match tree.root.syntaxElement.syntaxKind with
-            | DataMember ->
-                dataMember table tree
-            | VarElementList ->
-                varElementList table tree
-            | _ ->
-                let errorsAndTableAndTreeTriples = List.map (makeSymbolTableAndTree table) tree.children
-                let trees = mapTrdOfTriples errorsAndTableAndTreeTriples
-                flatMapFstOfTriples errorsAndTableAndTreeTriples, table, Tree.create tree.root trees
+                let errorsAndTreePairs = List.map (visitor) tree.children
+                let trees = List.map snd errorsAndTreePairs
 
-        let visit syntaxTree =
-            let symbolTable, symbolTree = SymbolTable.makeSymbolTableAndTree syntaxTree
-            makeSymbolTableAndTree symbolTable symbolTree
+                let errors =
+                    match errorsAndTreePairs with
+                    | errorsAndTreePair :: [] -> fst errorsAndTreePair
+                    | _ -> List.flatMap errorAndTreePairsMapper (List.indexed errorsAndTreePairs)
+
+                // If last child tree exists, replace the roots symbolEntry content with that child
+                errors, (List.tryLast trees <?> (fun t -> tree <<<< { tree.root with symbolEntry = t.root.symbolEntry })) @? tree
+
+            and visitor tree =
+                (match tree.root.syntaxElement.syntaxKind with
+                 | DataMember ->
+                     dataMember
+                 | VarElementList ->
+                     varElementList
+                 | _ ->
+                     (fun t ->
+                         let errorsAndTreePairs = List.map visitor t.children
+                         let trees = List.map snd errorsAndTreePairs
+                         let errors = List.flatMap fst errorsAndTreePairs
+                         errors, Tree.create t.root trees)) tree
+
+            visitor tree
 
     [<RequireQualifiedAccess>]
     module TypeCheckVisitor =
         let rec assignStat tree =
-            let a = Ast.typeAt 0 tree
-            let b = Ast.typeAt 1 tree
+            let lhsTypeMaybe = Ast.tryItemType 0 tree
+            let rhsTypeMaybe = Ast.tryItemType 1 tree
 
-            match a, b with
-            | Some lhs, Some rhs ->
-                if lhs.dimensionality <> rhs.dimensionality then
-                    ArrayDimensionMismatch(Ast.firstToken tree, tree.children.[0].root.symbolEntry @! "", rhs) :: []
+            match lhsTypeMaybe, rhsTypeMaybe with
+            | Some lhsType, Some rhsType ->
+                if lhsType.dimensionality <> rhsType.dimensionality then
+                    ArrayDimensionMismatch
+                        (Ast.firstToken tree,
+                         tree.children.[0].root.symbolEntry @! "TypeCheckVisitor.assignStat: `tree.children.[0].root.symbolEntry` is None", rhsType)
+                    :: []
                 else
                     let isTypeMismatched =
-                        match lhs, rhs with
+                        match lhsType, rhsType with
                         | Integer _, Integer _
                         | Float _, Float _
                         | Float _, Integer _ -> false
                         | SymbolType.Class(lhsClassName, _), SymbolType.Class(rhsClassName, _) -> lhsClassName <> rhsClassName
                         | _ -> true
                     if isTypeMismatched
-                    then TypeMismatch(Ast.firstToken tree, lhs, rhs) :: []
+                    then TypeMismatch(Ast.firstToken tree, lhsType, rhsType) :: []
                     else []
             | _, _ -> []
 
@@ -223,16 +210,46 @@ module Semanter =
             let visitor =
                 match tree.root.syntaxElement.syntaxKind with
                 | AssignStat -> assignStat
-                | _ -> (fun t -> List.flatMap (visit) t.children)
+                | _ -> (fun t -> List.flatMap visit t.children)
 
             visitor tree
 
-    let check tree =
-        let symTa1, symTr1 = SymbolTable.makeSymbolTableAndTree tree
-        let symErs, symTa, symTr = SymbolTableVisitor.visit tree
-        let typErs = TypeCheckVisitor.visit symTr
+    [<RequireQualifiedAccess>]
+    module SymbolCheckVisitor =
+        let checkMultiplyDeclared (table: SymbolTable): SemanticError list =
+            let distinctEntryMapper (entry: SymbolTable) = entry.duplicateByErrorComparer
 
-        tree
-        |> SymbolTableVisitor.visit
-        |||> (fun symbolErrors symbolTable symbolTree -> symbolTable, symbolTree, symbolErrors @ TypeCheckVisitor.visit symbolTree)
-        |||> (fun symbolTable symbolTree typeErrors -> typeErrors, symbolTable, symbolTree)
+            let duplicateErrorMapper (entry: SymbolTable) =
+                    match entry.kind with
+                    | Variable _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
+                    | Parameter _ -> MultiplyDeclaredParameter(entry.name, show entry)
+                    | FreeFunction _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
+                    | MemberFunction _ -> MultiplyDeclaredMemberFunction(entry.name, show entry)
+                    | Class _ -> MultiplyDeclaredClass(entry.name)
+                    | ProgKind
+                    | Nil -> failwith "Semanter.SymbolCheckVisitor.checkMultiplyDeclared: `ProgKind` or `Nil` type found"
+
+            let duplicateErrorsOuterScope (entries: SymbolTable list) =
+                let distinctEntries = List.distinctBy distinctEntryMapper entries
+                let duplicateEntries = List.filter (fun it -> not (List.contains it distinctEntries)) entries
+                let errors = List.map duplicateErrorMapper duplicateEntries
+                errors
+
+            let level1Scopes = [table.entries]
+            let level2Scopes = List.map (fun it -> it.entries) table.entries
+            let level3Scopes = List.map (fun st -> List.map (fun it -> it.entries) st.entries) table.entries
+
+            List.flatMap duplicateErrorsOuterScope (level1Scopes @ level2Scopes) @ List.flatMap (fun it -> List.flatMap duplicateErrorsOuterScope it) level3Scopes
+
+        let checkUndefined (table: SymbolTable): SemanticError list =
+            []
+
+        let visit (table: SymbolTable): SemanticError list =
+            checkMultiplyDeclared table |> (fun errors -> errors @ checkUndefined table)
+
+
+    let check syntaxTree =
+        SymbolTable.makeSymbolTableAndTree syntaxTree
+        ||> SymbolTableVisitor.visit
+        ||> (fun errors tree -> errors @ TypeCheckVisitor.visit tree, tree)
+        ||> (fun errors tree -> errors @ SymbolCheckVisitor.visit (tree.root.symbolEntry @! "Semanter.check: `tree.root.symbolEntry` is None"), tree)

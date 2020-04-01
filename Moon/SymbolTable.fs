@@ -56,8 +56,7 @@ type SymbolType =
               { line = 0
                 column = 0 } }
 
-    member x.dimensionality =
-        List.length x.dimensions
+    member x.dimensionality = List.length x.dimensions
 
     member inline x.show =
         match x with
@@ -81,8 +80,8 @@ type SymbolKind =
         match x with
         | Variable symbolType -> Variable symbolType.withoutDimensionality
         | Parameter symbolType -> Parameter symbolType.withoutDimensionality
-        | FreeFunction (symbolType, _) -> FreeFunction (symbolType.withoutDimensionality, [])
-        | MemberFunction (symbolType, _, superTypes) -> MemberFunction (symbolType.withoutDimensionality, [], superTypes)
+        | FreeFunction(symbolType, _) -> FreeFunction(symbolType.withoutDimensionality, [])
+        | MemberFunction(symbolType, _, superTypes) -> MemberFunction(symbolType.withoutDimensionality, [], superTypes)
         | Class _
         | ProgKind
         | Nil -> x
@@ -149,11 +148,9 @@ type SymbolTable =
       tree: Tree<SyntaxElement>
       globalTree: Tree<SymbolElement> option }
 
-    member x.symbolTree =
-        x.globalTree @! "SymbolTable.symbolTree: Tried to get `globalTree` but was None"
+    member x.symbolTree = x.globalTree @! "SymbolTable.symbolTree: Tried to get `globalTree` but was None"
 
-    member x.withNoDimensionality =
-        { x with kind = x.kind.withNoDimensionality }
+    member x.withNoDimensionality = { x with kind = x.kind.withNoDimensionality }
 
     member x.symbolType =
         match x.kind with
@@ -195,6 +192,27 @@ type SymbolTable =
         | ProgKind
         | Nil -> failwith "SymbolTable.returnType: Tried to access superTypes of non-Class SymbolKind"
 
+    member x.duplicateByErrorComparer =
+        match x.kind with
+        | Variable _ -> x.name.lexeme
+        | Parameter _ -> x.name.lexeme
+        | FreeFunction _ -> "Function " + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
+        | MemberFunction(_, _, classType) ->
+            "Function " + show classType + "." + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
+        | Class _ -> x.name.lexeme
+        | ProgKind
+        | Nil -> ""
+
+    member x.duplicateByWarningComparer =
+        match x.kind with
+        | Variable _ -> x.name.lexeme
+        | Parameter _ -> x.name.lexeme
+        | FreeFunction _ -> "Function " + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
+        | MemberFunction(_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + "(" + ")"
+        | Class _ -> x.name.lexeme
+        | ProgKind
+        | Nil -> failwith "Semanter.SymbolCheckVisitor.checkMultiplyDeclared: `ProgKind` or `Nil` type found"
+
     member inline x.show =
         match x.kind with
         | Variable _ -> "Variable " + x.name.lexeme + ": " + show x.kind
@@ -205,10 +223,7 @@ type SymbolTable =
         | ProgKind -> "Prog"
         | Nil -> x.name.lexeme
 
-
-
-and [<StructuredFormatDisplay("{show}")>]
- SymbolElement =
+and [<StructuredFormatDisplay("{show}")>] SymbolElement =
     { syntaxElement: SyntaxElement
       symbolEntry: SymbolTable option }
 
@@ -223,41 +238,16 @@ and [<StructuredFormatDisplay("{show}")>]
 
 [<RequireQualifiedAccess>]
 module SymbolTable =
-//    let rec findSymbolTables (localScopes: SymbolTable list) treeToFind currentTree =
-//        let tables =
-//            match currentTree.root.syntaxElement.syntaxKind with
-//            | Prog -> (currentTree.root.symbolEntry @! "ProgKind has no symbolEntry") :: localScopes
-//            | FuncDef -> (currentTree.root.symbolEntry @! "FuncDef has no symbolEntry") :: localScopes
-//            | MainFuncBody -> (currentTree.root.symbolEntry @! "MainFuncBody has no symbolEntry") :: localScopes
-//            | _ -> localScopes
-//        if treeToFind = currentTree
-//        then tables
-//        else (List.flatMap (findSymbolTables [] treeToFind) currentTree.children) @ tables
-//    let rec findSymbolTables (localScopes: SymbolTable list) treeToFind currentTree =
-//        let tables =
-//            match currentTree.root.syntaxElement.syntaxKind with
-//            | Prog -> (currentTree.root.symbolEntry @! "ProgKind has no symbolEntry") :: []
-//            | FuncDef -> (currentTree.root.symbolEntry @! "FuncDef has no symbolEntry") :: []
-//            | MainFuncBody -> (currentTree.root.symbolEntry @! "MainFuncBody has no symbolEntry") :: []
-//            | _ -> localScopes
-//        if treeToFind = currentTree
-//        then tables
-//        else
-//            let ts = (List.flatMap (findSymbolTables [] treeToFind) currentTree.children)
-//            if List.length ts > 1 || List.length tables > 1
-//            then printfn "hey"
-//            else ()
-//            ts @ tables
     let rec findSymbolTables (localScope: SymbolTable option) treeToFind currentTree =
         let localScope =
             match currentTree.root.syntaxElement.syntaxKind with
             | Prog -> (currentTree.root.symbolEntry)
             | FuncDef -> (currentTree.root.symbolEntry)
-            | ClassDecl ->currentTree.root.symbolEntry
+            | ClassDecl -> currentTree.root.symbolEntry
             | MainFuncBody -> (currentTree.root.symbolEntry)
             | _ -> localScope
-        if treeToFind = currentTree
-        then localScope
+        if treeToFind = currentTree then
+            localScope
         else
             let localScopes = List.map (findSymbolTables localScope treeToFind) currentTree.children
             if List.length (List.choose id localScopes) > 1
@@ -268,48 +258,57 @@ module SymbolTable =
     let rec findSymbolTable (treeToFind: Tree<SymbolElement>) (symbolTable: SymbolTable) =
         let localScope = findSymbolTables None treeToFind symbolTable.symbolTree
         localScope
-        //List.tryItem 0 xs
 
     let rec map (mapper: _ -> _) (symbolTable: SymbolTable): SymbolTable =
         match symbolTable.entries with
         | [] -> mapper symbolTable
         | xs -> { mapper symbolTable with entries = List.map mapper xs }
 
-//    let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
-//        let rec f (x: SymbolTable option): SymbolTable option =
-//            match x.map (fun it -> it.entries), predicate x with
-//            | _, true -> x
-//            | None, _ -> None
-//            | Some xs, false -> List.tryHead (List.choose id (List.map (f << Some) xs))
-//        f (Some symbolTable)
-
     let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
         let rec f (x: SymbolTable option): SymbolTable option =
             match x.map (fun it -> it.entries, predicate it) with
             | Some(_, true) -> x
-            | Some (xs,  false) -> List.tryHead (List.choose id (List.map (f << Some) xs))
+            | Some(xs, false) -> List.tryHead (List.choose id (List.map (f << Some) xs))
             | None -> None
         f (Some symbolTable)
 
+    let filter (predicate: _ -> bool) (symbolTable: SymbolTable): SymbolTable list =
+        let rec f (x: SymbolTable option): SymbolTable list =
+            match x.map (fun it -> it.entries, predicate it) with
+            | Some(_, true) -> x.map (fun it -> [it]) @? []
+            | Some(xs, false) -> List.flatMap (f << Some) xs
+            | None -> []
+        f (Some symbolTable)
+
     let tryFindClassTable (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable option =
+        let symbolTableSuperTypes = match symbolTable.kind with
+                                               | Class superTypes -> List.map (fun (it: SymbolType) -> it.className) superTypes
+                                               | _ -> []
+
+        let finderPredicate (className: string) (st: SymbolTable) =
+            className = st.name.lexeme || List.contains st.name.lexeme symbolTableSuperTypes
+
         let localScope = findSymbolTable tree symbolTable
         match localScope.map (fun it -> it.kind) with
-        | Some (SymbolKind.MemberFunction(returnType, paramTypes, classType)) -> tryFind (fun st -> st.name.lexeme = classType.className) symbolTable
+        | Some(SymbolKind.MemberFunction(returnType, paramTypes, classType)) ->
+            tryFind (finderPredicate classType.className) symbolTable
         | _ -> None
 
     let tryFindTableWithName (idSyntaxToken: Token) (symbolTable: SymbolTable) =
-//            let rec f x =
-//                let idSyntaxLexeme = idSyntaxToken.lexeme
-//
-//                match x with
-//                | Some st when st.name.lexeme = idSyntaxLexeme -> x
-//                | Some st when st.name.lexeme <> idSyntaxLexeme ->
-//                    let xs = List.map (f << Some) st.entries
-//                    let x = List.tryFind Option.isSome xs @? None
-//                    x
-//                | _ -> None
-//            f (Some symbolTable)
-            tryFind (fun st -> st.name.lexeme = idSyntaxToken.lexeme) symbolTable
+        tryFind (fun st -> st.name.lexeme = idSyntaxToken.lexeme) symbolTable
+
+    let tryFindTableWithName2 (name: string) (symbolTable: SymbolTable) =
+        tryFind (fun st -> st.name.lexeme = name) symbolTable
+
+    let tryFindClassTables (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable list =
+        let classSymbolTableMaybe = tryFindClassTable tree symbolTable
+
+        match classSymbolTableMaybe.map(fun it -> it, it.kind) with
+        | Some(classSymbolTable, Class superTypes) ->
+            let superClassTables = List.map (fun (it: SymbolType) -> tryFindTableWithName2 it.className symbolTable) superTypes
+                                    |> List.choose id
+            classSymbolTable :: superClassTables
+        | _ -> []
 
     let tokenFromSyntaxIdNode (node: Tree<SyntaxElement>) =
         let syntaxId = node.root
@@ -680,11 +679,10 @@ module SymbolTable =
         |> String.concat "\n"
 
 type SymbolTable with
-    member x.tryFindLocalTable symbolTree =
-        SymbolTable.findSymbolTable symbolTree x
+    member x.tryFindLocalTable symbolTree = SymbolTable.findSymbolTable symbolTree x
 
-    member x.tryFindClassTable symbolTree =
-        SymbolTable.tryFindClassTable symbolTree x
+    member x.tryFindClassTable symbolTree = SymbolTable.tryFindClassTable symbolTree x
 
-    member x.tryFindTableWithName token =
-        SymbolTable.tryFindTableWithName token x
+    member x.tryFindTableWithName token = SymbolTable.tryFindTableWithName token x
+
+    member x.findClassTables symbolTree = SymbolTable.tryFindClassTables symbolTree x

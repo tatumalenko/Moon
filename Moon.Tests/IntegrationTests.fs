@@ -94,9 +94,7 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
 
             Utils.write (Ast.makeGraphViz syntaxElementTree) syntaxTreeDotOutPath
 
-            //let symbolTable, symbolTree = SymbolTable.makeSymbolTableAndTree syntaxElementTree
-
-            let semanticErrors, symbolTable, symbolTree = Semanter.check syntaxElementTree
+            let semanticErrors, symbolTree = Semanter.check syntaxElementTree
 
             let symbolTableAsString =
                 SymbolTable.drawSymbolTable
@@ -105,8 +103,6 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
             Utils.write (symbolTableAsString) symbolTableOutPath
 
             Utils.write (Ast.makeGraphViz symbolTree) symbolTreeDotOutPath
-
-            //let semanticErrors, resolvedType = Semanter.check symbolTree
 
             let outputs, errors =
                 Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
@@ -199,6 +195,16 @@ module Polynomial =
                   code = Some "result = c; c = a;"
                   line = Some 33 } "grammar.grm"
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable"; "UndeclaredLocalVariable" ] @>
+
+    [<Fact>]
+    let ```Given polynomial/polynomial_deluxe.src, expect 24 semantic errors``() =
+        let semanticErrors =
+            parse
+                { path = "polynomial/polynomial_deluxe.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [] @>
+
 module MinProg =
     [<Fact>]
     let ``Given minprog source, then no semantic errors expected``() =
