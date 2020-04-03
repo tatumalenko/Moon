@@ -1,5 +1,7 @@
 namespace Moon
 
+open System.Collections.Generic
+
 [<StructuredFormatDisplay("{show}")>]
 type SymbolType =
     | Integer of int list
@@ -42,6 +44,15 @@ type SymbolType =
         | className ->
             (dimensions.map (fun xs -> Class(className, xs)))
             @! ("SymbolType.make: `typeToken.lexeme` = '" + className + "' but `dimensions` given is None")
+
+    static member create (typeName: string) (dimensions: int list) =
+        match typeName with
+        | "integer" -> Integer dimensions
+        | "float" -> Float dimensions
+        | "void" -> Void
+        | Int _ -> Integer dimensions
+        | Double _ -> Float dimensions
+        | className -> Class(className, dimensions)
 
     member x.fakeToken =
         let fakeLexeme =
@@ -238,6 +249,14 @@ and [<StructuredFormatDisplay("{show}")>] SymbolElement =
 
 [<RequireQualifiedAccess>]
 module SymbolTable =
+    let create name kind =
+        let token = { tokenType = TokenType.Id name; location = { line = 0; column = 0 } }
+        { name = token
+          kind = kind
+          entries = []
+          tree = Tree.create { syntaxKind = SyntaxKind.Id; token = None } []
+          globalTree = None }
+
     let rec findSymbolTables (localScope: SymbolTable option) treeToFind currentTree =
         let localScope =
             match currentTree.root.syntaxElement.syntaxKind with
@@ -275,15 +294,16 @@ module SymbolTable =
     let filter (predicate: _ -> bool) (symbolTable: SymbolTable): SymbolTable list =
         let rec f (x: SymbolTable option): SymbolTable list =
             match x.map (fun it -> it.entries, predicate it) with
-            | Some(_, true) -> x.map (fun it -> [it]) @? []
+            | Some(_, true) -> x.map (fun it -> [ it ]) @? []
             | Some(xs, false) -> List.flatMap (f << Some) xs
             | None -> []
         f (Some symbolTable)
 
     let tryFindClassTable (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable option =
-        let symbolTableSuperTypes = match symbolTable.kind with
-                                               | Class superTypes -> List.map (fun (it: SymbolType) -> it.className) superTypes
-                                               | _ -> []
+        let symbolTableSuperTypes =
+            match symbolTable.kind with
+            | Class superTypes -> List.map (fun (it: SymbolType) -> it.className) superTypes
+            | _ -> []
 
         let finderPredicate (className: string) (st: SymbolTable) =
             className = st.name.lexeme || List.contains st.name.lexeme symbolTableSuperTypes
@@ -303,10 +323,9 @@ module SymbolTable =
     let tryFindClassTables (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable list =
         let classSymbolTableMaybe = tryFindClassTable tree symbolTable
 
-        match classSymbolTableMaybe.map(fun it -> it, it.kind) with
+        match classSymbolTableMaybe.map (fun it -> it, it.kind) with
         | Some(classSymbolTable, Class superTypes) ->
-            let superClassTables = List.map (fun (it: SymbolType) -> tryFindTableWithName2 it.className symbolTable) superTypes
-                                    |> List.choose id
+            let superClassTables = List.map (fun (it: SymbolType) -> tryFindTableWithName2 it.className symbolTable) superTypes |> List.choose id
             classSymbolTable :: superClassTables
         | _ -> []
 
@@ -686,3 +705,13 @@ type SymbolTable with
     member x.tryFindTableWithName token = SymbolTable.tryFindTableWithName token x
 
     member x.findClassTables symbolTree = SymbolTable.tryFindClassTables symbolTree x
+
+type SymbolTableComparer(comparer: SymbolTable -> SymbolTable -> bool, hasher: SymbolTable -> int) =
+    member this.comparer = comparer
+
+    member this.hasher = hasher
+
+    interface IEqualityComparer<SymbolTable> with
+        member this.Equals(x, y) = this.comparer x y
+
+        member this.GetHashCode(x) = this.hasher x

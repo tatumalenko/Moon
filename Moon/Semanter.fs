@@ -70,7 +70,7 @@ type SemanticError =
         | MultiplyDeclaredFreeFunction(token, scopeName) -> x.prefix token + "multiple declared free function `" + scopeName + "`"
         | MultiplyDeclaredMemberVariable(token, scopeName) -> x.prefix token + "multiple declared member variable `" + scopeName + "`"
         | MultiplyDeclaredMemberFunction(token, scopeName) -> x.prefix token + "multiple declared member function `" + scopeName + "`"
-        | MultiplyDeclaredClass(token) -> x.prefix token + "multiple declared class `" + token.lexeme+ "`"
+        | MultiplyDeclaredClass(token) -> x.prefix token + "multiple declared class `" + token.lexeme + "`"
         | UndeclaredLocalVariable(token, scopeName) -> x.prefix token + "undeclared local variable `" + scopeName + "`"
         | UndeclaredMemberVariable(token, scopeName) -> x.prefix token + "undeclared member variable `" + scopeName + "`"
         | UndeclaredMemberFunction(token, scopeName) -> x.prefix token + "undeclared member function `" + scopeName + "`"
@@ -82,7 +82,6 @@ type SemanticError =
 
 [<RequireQualifiedAccess>]
 module Semanter =
-    open FSharpPlus
 
     [<RequireQualifiedAccess>]
     module Ast =
@@ -163,7 +162,7 @@ module Semanter =
                     | _ -> List.flatMap errorAndTreePairsMapper (List.indexed errorsAndTreePairs)
 
                 // If last child tree exists, replace the roots symbolEntry content with that child
-                errors, (List.tryLast trees <?> (fun t -> tree <<<< { tree.root with symbolEntry = t.root.symbolEntry })) @? tree
+                errors, (List.tryLast trees <<? (fun t -> tree <<<< { tree.root with symbolEntry = t.root.symbolEntry })) @? tree
 
             and visitor tree =
                 (match tree.root.syntaxElement.syntaxKind with
@@ -216,18 +215,43 @@ module Semanter =
 
     [<RequireQualifiedAccess>]
     module SymbolCheckVisitor =
+        let checkMultiplyDefined: _ list =
+            let comparer (a: SymbolTable) (b: SymbolTable) =
+                a.name.tokenType = b.name.tokenType
+
+            let xs =
+                [ SymbolTable.create "A" (SymbolKind.FreeFunction(SymbolType.create "a1" [], []))
+                  SymbolTable.create "B" (SymbolKind.FreeFunction(SymbolType.create "b1" [], []))
+                  SymbolTable.create "A" (SymbolKind.FreeFunction(SymbolType.create "a2" [], []))
+                  SymbolTable.create "B" (SymbolKind.FreeFunction(SymbolType.create "b2" [], []))
+                  SymbolTable.create "E" (SymbolKind.FreeFunction(SymbolType.create "e1" [], []))
+                  SymbolTable.create "A" (SymbolKind.FreeFunction(SymbolType.create "a3" [], []))
+                  SymbolTable.create "A" (SymbolKind.FreeFunction(SymbolType.create "a4" [], [])) ]
+
+            let mapComparer (a: SymbolTable) (b: SymbolTable) =
+                if a.name.tokenType = b.name.tokenType
+                then Some(SemanticError.UndeclaredClass(a.name))
+                else None
+
+            let a = mapCompare mapComparer xs
+
+            let bb = groupBy comparer xs
+
+            let distinctItems = distinct comparer xs
+            distinctItems
+
         let checkMultiplyDeclared (table: SymbolTable): SemanticError list =
             let distinctEntryMapper (entry: SymbolTable) = entry.duplicateByErrorComparer
 
             let duplicateErrorMapper (entry: SymbolTable) =
-                    match entry.kind with
-                    | Variable _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
-                    | Parameter _ -> MultiplyDeclaredParameter(entry.name, show entry)
-                    | FreeFunction _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
-                    | MemberFunction _ -> MultiplyDeclaredMemberFunction(entry.name, show entry)
-                    | Class _ -> MultiplyDeclaredClass(entry.name)
-                    | ProgKind
-                    | Nil -> failwith "Semanter.SymbolCheckVisitor.checkMultiplyDeclared: `ProgKind` or `Nil` type found"
+                match entry.kind with
+                | Variable _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
+                | Parameter _ -> MultiplyDeclaredParameter(entry.name, show entry)
+                | FreeFunction _ -> MultiplyDeclaredLocalVariable(entry.name, show entry)
+                | MemberFunction _ -> MultiplyDeclaredMemberFunction(entry.name, show entry)
+                | Class _ -> MultiplyDeclaredClass(entry.name)
+                | ProgKind
+                | Nil -> failwith "Semanter.SymbolCheckVisitor.checkMultiplyDeclared: `ProgKind` or `Nil` type found"
 
             let duplicateErrorsOuterScope (entries: SymbolTable list) =
                 let distinctEntries = List.distinctBy distinctEntryMapper entries
@@ -235,11 +259,12 @@ module Semanter =
                 let errors = List.map duplicateErrorMapper duplicateEntries
                 errors
 
-            let level1Scopes = [table.entries]
+            let level1Scopes = [ table.entries ]
             let level2Scopes = List.map (fun it -> it.entries) table.entries
             let level3Scopes = List.map (fun st -> List.map (fun it -> it.entries) st.entries) table.entries
 
-            List.flatMap duplicateErrorsOuterScope (level1Scopes @ level2Scopes) @ List.flatMap (fun it -> List.flatMap duplicateErrorsOuterScope it) level3Scopes
+            List.flatMap duplicateErrorsOuterScope (level1Scopes @ level2Scopes)
+            @ List.flatMap (fun it -> List.flatMap duplicateErrorsOuterScope it) level3Scopes
 
         let checkUndefined (table: SymbolTable): SemanticError list =
             []

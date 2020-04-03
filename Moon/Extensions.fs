@@ -1,10 +1,12 @@
 namespace global
 
 open FSharpPlus
-
+open System.Collections.Generic
 
 [<AutoOpen>]
 module Extensions =
+    open System.Linq
+
     let inline (@?) x v =
         match x with
         | Some y -> y
@@ -15,23 +17,21 @@ module Extensions =
         | Some v -> v
         | None -> failwith m
 
-    let inline (<?>) x f =
+    let inline (<<?) x f =
         match x with
-        | Some v -> Some (f v)
+        | Some v -> Some(f v)
         | None -> None
 
-    let inline (~%) (a, b) =
-        match a, b with
-        | Some a, Some b -> Some (a, b)
-        | _ -> None
-
-    let inline trd (a, b, c) = c
+    let inline (>>?) f x =
+        match f with
+        | Some y -> Some(y x)
+        | None -> None
 
     type Option<'a> with
         member inline x.map (f: _ -> _) = Option.map f x
         member inline x.flatten (a, b) =
             match a, b with
-            | Some a, Some b -> Some (a, b)
+            | Some a, Some b -> Some(a, b)
             | _ -> None
 
     let (|Int|_|) (str: string) =
@@ -44,13 +44,11 @@ module Extensions =
         | true, float -> Some float
         | _ -> None
 
-    type Seq =
-        static member safeSkip (num: int) (source: seq<'a>): seq<'a> =
+    module Seq =
+        let safeSkip (num: int) (source: seq<'a>): seq<'a> =
             seq {
                 use e = source.GetEnumerator()
                 let idx = ref 0
-                let aa = Some 1 @? 2
-                let bb = Some 1 @! "geey"
                 let loop = ref true
                 while !idx < num && !loop do
                     if not (e.MoveNext()) then loop := false
@@ -133,6 +131,50 @@ module Extensions =
             { items = items
               item = None
               idx = -1 }
+
+    let equalityComparer (comparer: _ -> _ -> bool) (hasher: (_ -> int) option) =
+        { new IEqualityComparer<'T> with
+            member x.Equals(a, b) = comparer a b
+            member x.GetHashCode(a) = (hasher >>? a) @? 42 }
+
+    let inline distinct (comparer: _ -> _ -> bool) (xs: _ list) = List.ofSeq (xs.Distinct(equalityComparer comparer None))
+
+    let mapCompare (comparer: 'a -> 'a -> 'b option) (xs: 'a list): 'b list =
+        let mutable bs: 'b list = []
+        let ixs = [|0..xs.Length-1|]
+        for i in ixs do
+            for j in ixs.Where (fun it -> it > i) do
+                match comparer xs.[i] xs.[j] with
+                | Some v -> bs <- v :: bs
+                | None -> ()
+
+        bs
+
+    let groupBy (comparer: 'a -> 'a -> bool) (xs: 'a list): 'a list list =
+        let mutable ys: 'a list list = []
+        let mutable d = System.Collections.Concurrent.ConcurrentDictionary<'a, 'a list>()
+        let ixs = [|0..xs.Length-1|]
+
+        for i in ixs do
+            for j in ixs.Where (fun it -> it > i) do
+                match comparer xs.[i] xs.[j] with
+                | true ->
+                    let keys = d.Keys.Where (fun k -> comparer k xs.[i] && (k <> xs.[i] && k <> xs.[j]))
+                    if keys.Count() = 0
+                    then
+                        d.GetOrAdd(xs.[i], xs.[i] :: xs.[j] :: []) |> ignore
+                    else
+                        let k = keys.First()
+                        let vs = d.GetOrAdd(k, [])
+                        let nvs = List.filter (fun v -> v <> xs.[i] && v <> xs.[j]) vs
+                        d.AddOrUpdate(k, nvs, fun _ v -> xs.[i] :: xs.[j] :: nvs) |> ignore
+                | false -> ()
+
+        for kv in d.ToList() do
+            ys <- ys @ [d.GetValueOrDefault(kv.Key)]
+            ()
+
+        ys
 
 [<AutoOpen>]
 [<RequireQualifiedAccess>]

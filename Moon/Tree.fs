@@ -16,6 +16,7 @@ type Tree<'T> =
         | _ -> false
 
     override x.GetHashCode() = 391 + (box x.root).GetHashCode() * 23 + x.children.GetHashCode()
+
     interface IEquatable<Tree<'T>> with
         member x.Equals y = obj.Equals(x.root, y.root) && (x.children :> _ seq).SequenceEqual y.children
 
@@ -152,6 +153,7 @@ module Tree =
         |> String.concat "\n"
 
 type Tree<'T> with
+    static member Map(a: Tree<'a>, f) = Tree.map f a
     static member (+) (t1: Tree<'a>, t2: Tree<'a>) = Tree.create t1.root (t1.children @ [ t2 ])
     static member (+) (t: Tree<'a>, a: 'a) = Tree.create t.root ((Tree.create a []) :: t.children)
     static member (<<<<) (t: Tree<'a>, a: 'a) = Tree.create a t.children

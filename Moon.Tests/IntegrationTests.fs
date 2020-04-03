@@ -1,6 +1,7 @@
 module Moon.Tests.Grammar
 
 open Moon
+open Moon
 open Moon.Tests
 open Swensen.Unquote
 open Xunit
@@ -315,3 +316,8 @@ module BubbleSort =
                   code = Some "arr[1][1][5] = arr; arr = unknownVar;"
                   line = Some 54 } "grammar.grm"
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch"; "UndeclaredLocalVariable" ] @>
+
+[<Fact>]
+let ``Comparer``() =
+    let xs = Semanter.SymbolCheckVisitor.checkMultiplyDefined
+    test <@ xs <> [] @>
