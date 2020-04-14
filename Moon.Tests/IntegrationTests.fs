@@ -1,8 +1,8 @@
-module Moon.Tests.Grammar
+module Moon.Tests.IntegrationTests
 
 open Moon
-open Moon
 open Moon.Tests
+open FSharpPlus
 open Swensen.Unquote
 open Xunit
 
@@ -45,6 +45,11 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
     let derivationOutPath = Utils.makePath (outRelativePath + fileName + ".parse.derivation")
     let parseErrorsOutPath = Utils.makePath (outRelativePath + fileName + ".parse.errors")
     let symbolTableOutPath = Utils.makePath (outRelativePath + fileName + ".parse.symbols")
+    let codeGenerationOutPath = Utils.makePath (outRelativePath + fileName + ".codegen.m")
+    let moonDirectoryPath = Utils.makePath "resources/moon"
+    let moonExecutablePath = Utils.makePath "resources/moon/moon"
+    let moonLibRelativePath = "./samples/lib.m"
+    let moonCodeGenerationInputRelativePath = "../grammar/out/" + directoryName + "/" + fileName + ".codegen.m"
 
     let mutable sourceCode =
         match sourceContext.code, sourceContext.line with
@@ -97,6 +102,8 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
 
             let semanticErrors, symbolTree = Semanter.check syntaxElementTree
 
+            let codeFactory = Semanter.CodeGenerationVisitor.visit symbolTree
+
             let symbolTableAsString =
                 SymbolTable.drawSymbolTable
                     (symbolTree.root.symbolEntry @! "IntegrationTests.parse: Tried to get `symbolTree.root.symbolEntry` but was None")
@@ -105,17 +112,21 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
 
             Utils.write (Ast.makeGraphViz symbolTree) symbolTreeDotOutPath
 
-            let outputs, errors =
-                Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
-                    ("-Tpdf " + syntaxTreeDotFileName + " -o " + syntaxTreeDotFileName + ".pdf")
+            Utils.write (show codeFactory) codeGenerationOutPath
+
+            Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
+                ("-Tpdf " + syntaxTreeDotFileName + " -o " + syntaxTreeDotFileName + ".pdf") |> ignore
+
+            Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
+                ("-Tpdf " + symbolTreeDotFileName + " -o " + symbolTreeDotFileName + ".pdf") |> ignore
 
             let outputs, errors =
-                Utils.CommandLineRunner.run (Utils.makePath outRelativePath) "/usr/local/bin/dot"
-                    ("-Tpdf " + symbolTreeDotFileName + " -o " + symbolTreeDotFileName + ".pdf")
+                Utils.CommandLineRunner.run moonDirectoryPath moonExecutablePath (moonLibRelativePath + " " + moonCodeGenerationInputRelativePath)
 
-            test <@ derivationTable <> List.empty @>
+            Utils.write (String.concat "\n" (Seq.filter (fun e -> e <> null) outputs))
+                (Utils.makePath (Utils.makePath (codeGenerationOutPath + ".out")))
 
-            semanticErrors
+            semanticErrors, String.trimWhiteSpaces (Seq.tryItem 2 outputs @? "")
         | Error failure ->
             match failure with
             | CollisionsInTable failure ->
@@ -133,19 +144,61 @@ let parse (sourceContext: SourceContext) (grammarPath: string) =
         | InvalidVariable failure -> failwith failure
         | InvalidSymbol failure -> failwith failure
 
+
+module Demo =
+    [<Fact>]
+    let ``Given some demo source, then various semantic errors expected`` () =
+        let semanticErrors, _ =
+            parse
+                { path = "demo/polynomial_mix.src"
+                  code = None
+                  line = None } "grammar.grm"
+        test <@ semanticErrors = [] @>
+
+module CodeGeneration =
+        [<Fact>]
+        let intArithExpr () =
+            let semanticErrors, output =
+                parse
+                    { path = "codegen/intarithexpr.src"
+                      code = None
+                      line = None } "grammar.grm"
+            test <@ semanticErrors = [] @>
+            test <@ output = "38 36 38 7 38 0 2 38 9" @>
+
+        [<Fact>]
+        let logArithExpr () =
+            let semanticErrors, output =
+                parse
+                    { path = "codegen/logarithexpr.src"
+                      code = None
+                      line = None } "grammar.grm"
+            test <@ semanticErrors = [] @>
+            test <@ output = "-3 145 -145 1 0 0 0 1 1 1 1 0 0 0 0 1 1 0 1 1 1 1 1 1 1 1 1 1 0 0 0 0 -1 3 -145" @>
+
+        [<Fact>]
+        let relExpr () =
+            let semanticErrors, output =
+                parse
+                    { path = "codegen/relexpr.src"
+                      code = None
+                      line = None } "grammar.grm"
+            test <@ semanticErrors = [] @>
+            test <@ output = "" @>
+
 module Polynomial =
     [<Fact>]
-    let ``Given polynomial source, then no semantic errors expected``() =
-        let semanticErrors =
+    let ``Given polynomial source, then no semantic errors expected`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = None
                   line = None } "grammar.grm"
-        test <@ semanticErrors = [ ] @>
+        test <@ semanticErrors = [] @>
 
     [<Fact>]
-    let ```localFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]``() =
-        let semanticErrors =
+    let ```localFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "result = c;"
@@ -153,8 +206,8 @@ module Polynomial =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
 
     [<Fact>]
-    let ```memberFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]``() =
-        let semanticErrors =
+    let ```memberFloatVar = undeclaredVar;`, [UndeclaredLocalVariable]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "a = c;"
@@ -162,17 +215,17 @@ module Polynomial =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
 
     [<Fact>]
-    let ```memberFloatVar = integerLiteral;`, []``() =
-        let semanticErrors =
+    let ```memberFloatVar = integerLiteral;`, []`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "a = 1;"
                   line = Some 33 } "grammar.grm"
-        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ ] @>
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [] @>
 
     [<Fact>]
-    let ```localClassVar = localIntegerVar;`, [TypeMismatch]``() =
-        let semanticErrors =
+    let ```localClassVar = localIntegerVar;`, [TypeMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "f1 = counter;"
@@ -180,8 +233,8 @@ module Polynomial =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "TypeMismatch" ] @>
 
     [<Fact>]
-    let ```localClassVar = floatLiteral;`, [TypeMismatch]``() =
-        let semanticErrors =
+    let ```localClassVar = floatLiteral;`, [TypeMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "f1 = 2.0;"
@@ -189,8 +242,8 @@ module Polynomial =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "TypeMismatch" ] @>
 
     [<Fact>]
-    let ```localFloatVar = undeclaredVar; undeclaredVar = memberFloatVar;`, [UndeclaredLocalVariable; UndeclaredLocalVariable]``() =
-        let semanticErrors =
+    let ```localFloatVar = undeclaredVar; undeclaredVar = memberFloatVar;`, [UndeclaredLocalVariable; UndeclaredLocalVariable]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial.src"
                   code = Some "result = c; c = a;"
@@ -198,8 +251,8 @@ module Polynomial =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable"; "UndeclaredLocalVariable" ] @>
 
     [<Fact>]
-    let ```Given polynomial/polynomial_deluxe.src, expect 24 semantic errors``() =
-        let semanticErrors =
+    let ```Given polynomial/polynomial_deluxe.src, expect 24 semantic errors`` () =
+        let semanticErrors, _ =
             parse
                 { path = "polynomial/polynomial_deluxe.src"
                   code = None
@@ -208,46 +261,47 @@ module Polynomial =
 
 module MinProg =
     [<Fact>]
-    let ``Given minprog source, then no semantic errors expected``() =
-        let semanticErrors =
+    let ``Given minprog source, then no semantic errors expected`` () =
+        let semanticErrors, _ =
             parse
                 { path = "minprog/minProg.src"
                   code = None
                   line = None } "grammar.grm"
-        test <@ semanticErrors = [ ] @>
+        test <@ semanticErrors = [] @>
+
 module Conditionals =
     [<Fact>]
-    let ``Given conditionals source, then no semantic errors expected``() =
-        let semanticErrors =
+    let ``Given conditionals source, then no semantic errors expected`` () =
+        let semanticErrors, _ =
             parse
                 { path = "conditionals/conditionals.src"
                   code = None
                   line = None } "grammar.grm"
-        test <@ semanticErrors = [ ] @>
+        test <@ semanticErrors = [] @>
 
 module MultRelExpr =
     [<Fact>]
-    let ``Given multrelexpr source, then no semantic errors expected``() =
-        let semanticErrors =
+    let ``Given multrelexpr source, then no semantic errors expected`` () =
+        let semanticErrors, _ =
             parse
                 { path = "multrelexpr/multRelexpr.src"
                   code = None
                   line = None } "grammar.grm"
-        test <@ semanticErrors = [ ] @>
+        test <@ semanticErrors = [] @>
 
 module BubbleSort =
     [<Fact>]
-    let ``Given bubblesort source, then out matches expected``() =
-        let semanticErrors =
+    let ``Given bubblesort source, then out matches expected`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = None
                   line = None } "grammar.grm"
-        test <@ semanticErrors = [ ] @>
+        test <@ semanticErrors = [] @>
 
     [<Fact>]
-    let ```arr[7] = unknownVar;`, [UnknownIdentifier]``() =
-        let semanticErrors =
+    let ```arr[7] = unknownVar;`, [UnknownIdentifier]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[7] = unknownVar;"
@@ -255,8 +309,8 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "UndeclaredLocalVariable" ] @>
 
     [<Fact>]
-    let ```arr = 1;`, [ArrayDimensionMismatch]``() =
-        let semanticErrors =
+    let ```arr = 1;`, [ArrayDimensionMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr = 1;"
@@ -264,8 +318,8 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
 
     [<Fact>]
-    let ```arr[1] = arr;`, [ArrayDimensionMismatch]``() =
-        let semanticErrors =
+    let ```arr[1] = arr;`, [ArrayDimensionMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1] = arr;"
@@ -273,8 +327,8 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
 
     [<Fact>]
-    let ```arr[1] = arr[1][1];`, [ArrayDimensionMismatch]``() =
-        let semanticErrors =
+    let ```arr[1] = arr[1][1];`, [ArrayDimensionMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1] = arr[1][1];"
@@ -282,8 +336,8 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
 
     [<Fact>]
-    let ```arr[1][1] = arr[1];`, [ArrayDimensionMismatch]``() =
-        let semanticErrors =
+    let ```arr[1][1] = arr[1];`, [ArrayDimensionMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1][1] = arr[1];"
@@ -291,8 +345,8 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
 
     [<Fact>]
-    let ```arr[1][1] = arr;`, [ArrayDimensionMismatch]``() =
-        let semanticErrors =
+    let ```arr[1][1] = arr;`, [ArrayDimensionMismatch]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1][1] = arr;"
@@ -300,24 +354,25 @@ module BubbleSort =
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch" ] @>
 
     [<Fact>]
-    let ```arr[1] = arr[1];` then []``() =
-        let semanticErrors =
+    let ```arr[1] = arr[1];` then []`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1] = arr[1];"
                   line = Some 54 } "grammar.grm"
-        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ ] @>
+        test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [] @>
 
     [<Fact>]
-    let ```arr[1][1][5] = arr; arr = unknownVar;` then [ArrayDimensionMismatch; UndeclaredLocalVariable]``() =
-        let semanticErrors =
+    let ```arr[1][1][5] = arr; arr = unknownVar;` then [ArrayDimensionMismatch; UndeclaredLocalVariable]`` () =
+        let semanticErrors, _ =
             parse
                 { path = "bubblesort/bubblesort.src"
                   code = Some "arr[1][1][5] = arr; arr = unknownVar;"
                   line = Some 54 } "grammar.grm"
         test <@ List.map (fun it -> Utils.unionCaseName it) semanticErrors = [ "ArrayDimensionMismatch"; "UndeclaredLocalVariable" ] @>
 
-[<Fact>]
-let ``Comparer``() =
-    let xs = Semanter.SymbolCheckVisitor.checkMultiplyDefined
-    test <@ xs <> [] @>
+module SymbolTable =
+    [<Fact>]
+    let Comparer () =
+        let xs = Semanter.SymbolCheckVisitor.checkMultiplyDefined
+        test <@ xs <> [] @>

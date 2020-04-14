@@ -1,0 +1,23 @@
+main
+  local
+    integer x;
+    integer y;
+    integer z;
+    integer a;
+    integer b;
+  do
+    x = 35;
+    y = 3;
+    z = 2;
+    a = 4;
+    b = 5;
+    write(x + y);                      // 35+3          =38
+    write(x + y - z);                  // 35+3-2        =36
+    write(x + y - z / a);              // 35+3-2/4      =38-0=38
+    write(x / b);                      // 35/5          =7
+	write(x + y - z / a * b);          // 35+3-2/4*5    =38+0*5=38
+	write(z / a);                      // 2/4           =0.5=0
+	write(a / z);                      // 4/2           =2
+	write(x + y - ((z / a) * b));      // 35+3-2/4*5    =38-0*5=38
+	write((x + y * 49 - z) / (a * b)); // 35+3*49-2/4*5 =180/20=9
+  end

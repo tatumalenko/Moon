@@ -706,6 +706,14 @@ type SymbolTable with
 
     member x.findClassTables symbolTree = SymbolTable.tryFindClassTables symbolTree x
 
+    ///
+    /// Returns localTable, classTable, and classSuperTables
+    member x.tryFindTables tree =
+        let localTableMaybe = x.tryFindLocalTable tree
+        let classTableMaybe = x.tryFindClassTable tree
+        let classSuperTables = x.findClassTables tree
+        localTableMaybe, classTableMaybe, classSuperTables
+
 type SymbolTableComparer(comparer: SymbolTable -> SymbolTable -> bool, hasher: SymbolTable -> int) =
     member this.comparer = comparer
 

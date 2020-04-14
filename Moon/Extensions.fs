@@ -7,6 +7,10 @@ open System.Collections.Generic
 module Extensions =
     open System.Linq
 
+    let NEWLINE = "\n"
+
+    let INDENT = "      "
+
     let inline (@?) x v =
         match x with
         | Some y -> y
@@ -175,6 +179,12 @@ module Extensions =
             ()
 
         ys
+
+    let inline (+=) (a: 'a byref) (b: 'b) =
+        a <- a + b
+
+    let appendn a b =
+        a + NEWLINE + b
 
 [<AutoOpen>]
 [<RequireQualifiedAccess>]

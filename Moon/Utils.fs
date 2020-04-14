@@ -1,9 +1,9 @@
 module Moon.Utils
 
+open Microsoft.FSharp.Reflection
 open System
 open System.Diagnostics
 open System.IO
-open Microsoft.FSharp.Reflection
 
 let unionCases<'T> =
     typeof<'T>
@@ -68,7 +68,7 @@ module CommandLineRunner =
                 p.Start()
             with ex ->
                 ex.Data.Add("filename", executablePath)
-                reraise()
+                reraise ()
         if not started then failwithf "Failed to start process %s" executablePath
         printfn "Started %s with pid %i" p.ProcessName p.Id
         p.BeginOutputReadLine()
