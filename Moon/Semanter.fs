@@ -315,13 +315,13 @@ module Semanter =
                             | x, y when x = y ->
                                 errors
                             | x, y ->
-                                TypeDimensionMismatch(tree.root.syntaxToken, x, y) :: errors
+                                TypeDimensionMismatch(lhs.root.symbolType.Value.fakeToken, x, y) :: errors
                         | Some (SymbolType.Class (lname, ldims)), Some (SymbolType.Class (rname, rdims)) ->
                             match List.length ldims, List.length rdims with
                             | x, y when x = y && lname = rname -> errors
-                            | x, y when x <> y -> TypeDimensionMismatch(tree.root.syntaxToken, x, y) :: errors
+                            | x, y when x <> y -> TypeDimensionMismatch(lhs.root.symbolType.Value.fakeToken, x, y) :: errors
                             | _ ->
-                                TypeMismatch(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                                TypeMismatch(lhs.root.symbolType.Value.fakeToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
                         | _ -> errors
                     errors, Tree.create tree.root [ lhs; rhs ]
                 | _ -> [], tree
@@ -725,7 +725,7 @@ module Semanter =
                         cf.push r2
                         cf.push r1
                         me
-                    | None -> me
+                    | _ -> me
                 | _ -> failwith "CodeGeneratorVisitor.visit.addOp: expected `Some arithExpr, term` but was `None`"
 
             and multOp (tree: Tree<SymbolElement>) =
@@ -771,7 +771,7 @@ module Semanter =
                         cf.push r2
                         cf.push r1
                         me
-                    | None -> me
+                    | _ -> me
                 | _ -> failwith "CodeGeneratorVisitor.visit.multOp: expected `Some term, factor` but was `None`"
 
             and sign (tree: Tree<SymbolElement>) =
