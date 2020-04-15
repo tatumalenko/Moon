@@ -15,7 +15,15 @@ You will find the assignment document located in `doc/a1/a1_40055122.pdf`.
 
 ## Assignment 2
 
-You will find the assignment document located in doc/a2/a2_40055122.pdf.
+You will find the assignment document located in `doc/a2/a2_40055122.pdf`.
+
+## Assignment 3
+
+You will find the assignment document located in `doc/a3/a3_40055122.pdf`.
+
+## Assignment 4
+
+You will find the assignment document located in `doc/a4/a4_40055122.pdf`.
 
 # Install
 
