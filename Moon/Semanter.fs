@@ -142,7 +142,7 @@ module Semanter =
                 | _ -> [], tree
 
             and multOp (tree: Tree<SymbolElement>) =
-                match (List.tryItem 0 tree.children).map(fun e -> visitor e), (List.tryItem 1 tree.children).map(fun e -> visitor e) with
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
                 | Some (lerrors, lhs), Some (rerrors, rhs) ->
                     let errors = lerrors @ rerrors
 
@@ -177,7 +177,7 @@ module Semanter =
                 | _ -> [], tree
 
             and not (tree: Tree<SymbolElement>) =
-                match (List.tryItem 0 tree.children).map(fun e -> visitor e) with
+                match (List.tryItem 0 tree.children).map visitor with
                 | Some (errors, factor) ->
                     errors,
                     Tree.create
@@ -195,8 +195,8 @@ module Semanter =
                 not tree // Same as not, i.e. Single (OneOf factor)
 
             and relExpr (tree: Tree<SymbolElement>) =
-                match (List.tryItem 0 tree.children).map(fun e -> visitor e), (List.tryItem 1 tree.children).map(fun e -> visitor e),
-                      (List.tryItem 2 tree.children).map(fun e -> visitor e) with
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor,
+                      (List.tryItem 2 tree.children).map visitor with
                 | Some (lerrors, lhs), Some (merrors, relOp), Some (rerrors, rhs) ->
                     let errors = lerrors @ merrors @ rerrors
 
@@ -221,13 +221,14 @@ module Semanter =
                             SemanticError.RelTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
                         | _ -> SemanticError.RelTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
 
+
                     // Need to return new tree with child trees with updated symbol entry
                     errors,
                     Tree.create
                         { tree.root with
                               symbolEntry =
                                   Some
-                                      { name = tree.root.syntaxToken
+                                      { name = lhs.root.symbolEntry.Value.name
                                         kind = lhs.root.symbolEntry.Value.kind
                                         entries = []
                                         tree = Tree.create tree.root.syntaxElement []
@@ -301,7 +302,7 @@ module Semanter =
                 | _ -> errors, tree
 
             and assignStat (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
-                match (List.tryItem 0 tree.children).map(fun e -> visitor e), (List.tryItem 1 tree.children).map(fun e -> visitor e) with
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
                 | Some (lerrors, lhs), Some (rerrors, rhs) ->
                     let errors = rerrors @ lerrors
 
@@ -672,7 +673,7 @@ module Semanter =
                         let r3 = cf.pop
                         cf.code ("lw", sprintf "%s,%s(r0)" r1 lhs.tag, show tree)
                         cf.code ("lw", sprintf "%s,%s(r0)" r2 rhs.tag)
-                        cf.code (opCode, sprintf "%s,%s,%s" r3 r2 r1)
+                        cf.code (opCode, sprintf "%s,%s,%s" r3 r1 r2)
                         cf.code ("sw", sprintf "%s(r0),%s" me.tag r3)
                         cf.push r3
                         cf.push r2

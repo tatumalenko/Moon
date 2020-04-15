@@ -184,7 +184,7 @@ module CodeGeneration =
                       code = None
                       line = None } "grammar.grm"
             test <@ semanticErrors = [] @>
-            test <@ output = "" @>
+            test <@ output = "1 1 0 0 0 1 0 0 1 1 1 1 0 0 0 1 1 0" @>
 
 module Polynomial =
     [<Fact>]
