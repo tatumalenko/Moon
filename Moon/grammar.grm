@@ -1,0 +1,112 @@
+start                      -> prog
+prog                       -> classDeclList #MakeNodeClassDeclList funcDefList #MakeNodeFuncDefList 'main' funcBody #MakeNodeMainFuncBody #MakeNodeProg #EndProgram
+classDecl                  -> 'class' 'id' #GetData #MakeNodeId inherListOp #MakeNodeInheritList '{' memberDeclList '}' #MakeNodeMemberDeclList #MakeNodeClassDecl
+classDeclList              -> classDecl classDeclList
+classDeclList              -> EPSILON
+funcDecl                   -> 'id' #GetData #MakeNodeId '(' fParamList #MakeNodeFParamList ')' ':' typeOrVoid ';' #MakeNodeFuncDecl
+funcHead                   -> 'id' scopeOp '(' fParamList #MakeNodeFParamList ')' ':' typeOrVoid
+scopeOp                    -> #GetData #MakeNodeType 'sr' 'id' #GetData #MakeNodeId
+scopeOp                    -> #MakeNodeEpsilon #GetData #MakeNodeId
+funcDef                    -> funcHead funcBody #MakeNodeFuncBody #MakeNodeFuncDef
+funcDefList                -> funcDef funcDefList
+funcDefList                -> EPSILON
+localVarDecl               -> 'local' varDeclList
+localVarDecl               -> EPSILON
+varDeclList                -> varDecl varDeclList
+varDeclList                -> EPSILON
+funcBody                   -> localVarDecl funcBody'
+funcBody'                  -> 'do' statOrAssignOrFuncCallList 'end'
+visibility                 -> 'public'
+visibility                 -> 'private'
+varDecl                    -> type 'id' #GetData #MakeNodeId dimListOrEpsilon ';' #MakeNodeVarDecl
+memberDecl                 -> visibility varOrFuncDecl
+varOrFuncDecl              -> 'integer' #GetData #MakeNodeType 'id' #GetData #MakeNodeId dimListOrEpsilon ';' #MakeNodeVarDecl
+varOrFuncDecl              -> 'float' #GetData #MakeNodeType 'id' #GetData #MakeNodeId dimListOrEpsilon ';' #MakeNodeVarDecl
+varOrFuncDecl              -> 'id' varOrFuncDecl'
+varOrFuncDecl'             -> #GetData #MakeNodeId '(' fParamList #MakeNodeFParamList ')' ':' typeOrVoid ';' #MakeNodeFuncDecl
+varOrFuncDecl'             -> #GetData #MakeNodeType dimListOrEpsilon ';' #MakeNodeVarDecl
+memberDeclList             -> memberDecl memberDeclList
+memberDeclList             -> EPSILON
+assignStat                 -> variable assignOp expr
+statement                  -> 'if'     '(' relExpr ')' 'then' statBlock 'else' statBlock #MakeNodeIfStat
+statement                  -> 'while'  '(' relExpr ')' statBlock #MakeNodeWhileStat
+statement                  -> 'read'   '(' variable ')' #MakeNodeReadStat
+statement                  -> 'write'  '(' expr ')' #MakeNodeWriteStat
+statement                  -> 'return' '(' expr ')' #MakeNodeReturnStat
+statOrAssignOrFuncCall     -> 'id' #GetData #MakeNodeId statOrAssignOrFuncCall'
+statOrAssignOrFuncCall     -> statement ';'
+statOrAssignOrFuncCall'    -> indexList #MakeNodeIndexList #MakeNodeDataMember idnestRep #MakeNodeVarElementList assignOp expr #MakeNodeAssignStat ';'
+statOrAssignOrFuncCall'    -> '(' aParamList ')' #MakeNodeAParamList #MakeNodeFunctionCall idnestRep ';'
+statOrAssignOrFuncCallList -> statOrAssignOrFuncCall statOrAssignOrFuncCallList
+statOrAssignOrFuncCallList -> EPSILON
+statBlock                  -> 'do' statOrAssignOrFuncCallList 'end' #MakeNodeStatBlock
+statBlock                  -> statOrAssignOrFuncCall #MakeNodeStatBlock
+statBlock                  -> EPSILON #MakeNodeStatBlock
+expr                       -> arithExpr expr'
+expr'                      -> relOp arithExpr #MakeNodeRelExpr
+expr'                      -> EPSILON
+relExpr                    -> arithExpr relOp arithExpr #MakeNodeRelExpr
+arithExpr                  -> term arithExpr'
+arithExpr'                 -> addOp #GetData term arithExpr' #MakeNodeAddOp
+arithExpr'                 -> EPSILON
+sign                       -> '+'
+sign                       -> '-'
+term                       -> factor term'
+term'                      -> multOp #GetData factor term' #MakeNodeMultOp
+term'                      -> EPSILON
+factor                     -> 'id' #GetData #MakeNodeId factor' idnestRep #MakeNodeVarElementList
+factor                     -> 'intNum' #GetData #MakeNodeNum
+factor                     -> 'floatNum' #GetData #MakeNodeNum
+factor                     -> '(' arithExpr ')'
+factor                     -> 'not' #GetData factor #MakeNodeNot
+factor                     -> sign #GetData factor #MakeNodeSign
+factor'                    -> indexList #MakeNodeIndexList #MakeNodeDataMember
+factor'                    -> '(' aParamList ')' #MakeNodeAParamList #MakeNodeFunctionCall
+variable                   -> 'id' #GetData #MakeNodeId indexList #MakeNodeIndexList #MakeNodeDataMember idnestRep #MakeNodeVarElementList
+idnest                     -> '.' 'id' #GetData #MakeNodeId idnest'
+idnest'	                   -> indexList #MakeNodeIndexList #MakeNodeDataMember
+idnest'                    -> '(' aParamList ')' #MakeNodeAParamList #MakeNodeFunctionCall
+idnestRep                  -> idnest idnestRep
+idnestRep                  -> EPSILON
+inherListOp                -> 'inherits' 'id' #GetData #MakeNodeIdi inherList
+inherListOp                -> EPSILON
+inherList                  -> ',' 'id' #GetData #MakeNodeIdi inherList
+inherList                  -> EPSILON
+index                      -> '[' arithExpr ']'
+indexList                  -> index indexList
+indexList                  -> EPSILON
+dim                        -> '[' dim' ']'
+dim'                       -> 'intNum' #GetData #MakeNodeNum
+dim'                       -> EPSILON
+dimListOrEpsilon           -> dimList #MakeNodeDimList
+dimListOrEpsilon           -> EPSILON
+dimList                    -> dimList'
+dimList'                   -> dim dimListOrEpsilon
+type                       -> 'integer' #GetData #MakeNodeType
+type                       -> 'float' #GetData #MakeNodeType
+type                       -> 'id' #GetData #MakeNodeType
+typeOrVoid                 -> type
+typeOrVoid                 -> 'void' #GetData #MakeNodeType
+fParam                     -> type 'id' #GetData #MakeNodeId dimListOrEpsilon #MakeNodeFParam
+fParamList                 -> fParam fParamList'
+fParamList                 -> EPSILON
+fParamList'                -> ',' fParam fParamList'
+fParamList'                -> EPSILON
+aParam                     -> expr
+aParamList                 -> aParam aParamList'
+aParamList                 -> EPSILON
+aParamList'                -> ',' aParam aParamList'
+aParamList'                -> EPSILON
+assignOp                   -> '='
+relOp                      -> '==' #GetData #MakeNodeRelOp
+relOp                      -> '<>' #GetData #MakeNodeRelOp
+relOp                      -> '<' #GetData #MakeNodeRelOp
+relOp                      -> '>' #GetData #MakeNodeRelOp
+relOp                      -> '<=' #GetData #MakeNodeRelOp
+relOp                      -> '>=' #GetData #MakeNodeRelOp
+addOp                      -> '+'
+addOp                      -> '-'
+addOp                      -> 'or'
+multOp                     -> '*'
+multOp                     -> '/'
+multOp                     -> 'and'

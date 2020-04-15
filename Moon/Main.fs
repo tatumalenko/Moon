@@ -1,11 +1,11 @@
 module Moon.Main
 
 open System
-open Moon
-open Moon.Lexer
+open System.Reflection
+open System.Text.RegularExpressions
 open Argu
 
-type LexerArgs =
+type LexArgs =
     | Path of string
     | OutDir of string
     | Text of string
@@ -16,35 +16,37 @@ type LexerArgs =
             | OutDir _ -> "directory for the output tokenized files"
             | Text _ -> "text (string literal) to tokenize"
 
+type ParseArgs =
+    | Path of string
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Path _ -> "path of the file to parse"
+
+
 and CommandArgs =
-    | [<CliPrefix(CliPrefix.None)>] Lex of ParseResults<LexerArgs>
+    | [<CliPrefix(CliPrefix.None)>] Lex of ParseResults<LexArgs>
+    | [<CliPrefix(CliPrefix.None)>] Parse of ParseResults<ParseArgs>
+    | [<CliPrefix(CliPrefix.None)>] CompileRegex
     interface IArgParserTemplate with
         member this.Usage =
             match this with
             | Lex _ -> "runs the tokenization of a given source file"
+            | Parse _ -> "parses the contents of a given source file"
+            | CompileRegex -> "compile regex to dll"
 
-[<EntryPoint>]
-let main argv =
-    let parser = ArgumentParser.Create<CommandArgs>(programName = "moon")
-
-    let results = parser.Parse argv
-    let args = results.GetAllResults()
-
+let processLexCmd (command: ParseResults<LexArgs>) (parser: ArgumentParser<CommandArgs>) (args: CommandArgs list) =
     let mutable inPath = ""
     let mutable outDir = ""
     let mutable text = ""
 
     if Seq.length args = 0 then failwith "Missing subcommand argument"
 
-    let command =
-        match args.[0] with
-        | Lex lexer -> lexer
-
     for arg in command.GetAllResults() do
         match arg with
-        | Path path -> inPath <- path
-        | OutDir dir -> outDir <- dir
-        | Text txt -> text <- txt
+        | LexArgs.Path path -> inPath <- path
+        | LexArgs.OutDir dir -> outDir <- dir
+        | LexArgs.Text txt -> text <- txt
 
     if text = "" then
         if inPath = "" then
@@ -55,30 +57,116 @@ let main argv =
             Console.WriteLine(parser.PrintUsage())
             failwith "Missing command line argument --outDir"
 
-    let outcomes =
-        if text = "" then
-            tokenize (FilePath inPath)
-        else
-            tokenize
-                (InputType.Text
-                    (text.Split "\n"
-                     |> List.ofSeq))
+    let outcomes = Lexer.tokenize (if text = "" then FilePath inPath else InputType.Text text)
 
     if text = "" then
         let fileName = Utils.Path.fileName inPath
-        writeTokens outcomes (Utils.Path.join outDir (fileName + ".outlextokens"))
-        writeErrors outcomes (Utils.Path.join outDir (fileName + ".outlexerrors"))
+        Lexer.writeTokens outcomes (Utils.Path.join outDir (fileName + ".outlextokens"))
+        Lexer.writeErrors outcomes (Utils.Path.join outDir (fileName + ".outlexerrors"))
     else
         printfn ""
         printfn "OUTLEXTOKENS:"
-        printfn "%s" (display outcomes)
+        printfn "%s" (Lexer.display outcomes)
         printfn ""
         printfn "OUTLEXERRORS:"
         printfn "%s"
-            (lexicalErrors outcomes
-             |> List.map (fun e -> e.displayDetailed)
+            (outcomes
+             |> List.map show
              |> List.fold (fun state e ->
-                 if state = "" then e
-                 else state + "\n" + e) "")
+                 if state = "" then e else state + "\n" + e) "")
+
+let processParseCmd (command: ParseResults<ParseArgs>) (parser: ArgumentParser<CommandArgs>) (args: CommandArgs list) =
+    let mutable inPath = ""
+
+    if Seq.length args = 0 then failwith "Missing subcommand argument"
+
+    for arg in command.GetAllResults() do
+        match arg with
+        | ParseArgs.Path path -> inPath <- path
+
+    if inPath = "" then
+        Console.WriteLine(parser.PrintUsage())
+        failwith "Missing command line argument --path"
+
+    let fileName = Utils.Path.fileName inPath
+
+    let grammar =
+        Utils.read (Utils.Path.makePath "grammar.grm")
+        |> Grammar.from
+
+    match grammar with
+    | Ok cfg ->
+        let firstSets = Grammar.makeFirstSets cfg
+        let followSets = Grammar.makeFollowSets cfg firstSets
+
+        let outcomes = Lexer.tokenize (InputType.FilePath inPath)
+
+        let mutable tokens = List.empty
+
+        for outcome in outcomes do
+            match outcome with
+            | token when token.tokenType.isValid -> tokens <- tokens @ [ token ]
+            | _ -> ignore()
+
+        let table = Grammar.makeParseTable cfg firstSets followSets
+        let parserTableAsString = Parser.drawParseTable cfg table
+        Utils.write parserTableAsString (Utils.Path.makePath "parseTable.grm")
+
+        match table with
+        | Ok parserTable ->
+            let parser =
+                { Parser.grammar = cfg
+                  Parser.table = parserTable
+                  Parser.firstSets = firstSets
+                  Parser.followSets = followSets }
+
+            match parser.sanitizeTokensAndParse tokens with
+            | Ok (ast, derivationTable, syntaxErrors) ->
+                Utils.write (Parser.drawIndexedAst ast) (Utils.Path.makePath "ast.grm")
+                Utils.write
+                    (ast.errors
+                     |> List.map (fun e -> show e)
+                     |> String.concat "\n") (Utils.Path.makePath "astErrors.grm")
+                Utils.write (Ast.asGraphViz ast) (Utils.Path.makePath "ast.dot")
+                Utils.write (Parser.drawDerivationTable derivationTable)
+                    (Utils.Path.makePath "derivationTable.grm")
+                Utils.write (Parser.drawSyntaxErrors syntaxErrors) (Utils.Path.makePath "syntaxErrors.grm")
+                ()
+            | _ ->
+                printfn "Oops. Something went wrong"
+
+                ()
+
+        | _ -> ()
+    | Error _ -> ()
+
+//let processCompileRegexCmd (parser: ArgumentParser<CommandArgs>) =
+//    let tokenTypeCaseNames = Utils.unionCaseNames<TokenType>
+//    let tokenTypes = tokenTypeCaseNames |> Set.map Utils.makeUnionCase<TokenType>
+//    let mapTokenTypeToPattern (tokenType: TokenType) = (tokenType, tokenType.pattern)
+//    let tokenTypesAndPatterns = Set.map mapTokenTypeToPattern tokenTypes |> Array.ofSeq
+//    let regexes =
+//        tokenTypesAndPatterns
+//        |> Array.map (fun (tokenType, pattern) ->
+//            RegexCompilationInfo(
+//                pattern,
+//                RegexOptions.Compiled ||| RegexOptions.ExplicitCapture,
+//                Utils.unionCaseName tokenType,
+//                "Moon.DFA",
+//                true))
+//
+//    Regex.CompileToAssembly(regexes, AssemblyName("Moon.DFA, Version=1.0.0.1001, Culture=neutral, PublicKeyToken=null"))
+
+[<EntryPoint>]
+let main argv =
+    let parser = ArgumentParser.Create<CommandArgs>(programName = "moon")
+
+    let results = parser.Parse argv
+    let args = results.GetAllResults()
+
+    match args.[0] with
+    | Lex lexer -> processLexCmd lexer parser args
+    | Parse parse -> processParseCmd parse parser args
+    | CompileRegex -> () //processCompileRegexCmd parser
 
     0

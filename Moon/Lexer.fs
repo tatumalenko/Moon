@@ -1,20 +1,46 @@
-﻿module Moon.Lexer
+﻿namespace Moon
 
-open System.Text.RegularExpressions
 open System
-open Moon
+open System.Text.RegularExpressions
 
-type Token =
+[<StructuredFormatDisplay("line={line}, column={column}")>]
+type Location =
+    { line: int
+      column: int }
+
+and InputType =
+    | FilePath of string
+    | Text of string
+
+and [<StructuredFormatDisplay("{show}")>] Token =
+    { tokenType: TokenType
+      location: Location }
+    member x.case = x.tokenType.case
+    member x.lexeme = show x.tokenType
+    member x.isPartial = x.tokenType.isPartial
+    member x.isInvalid = x.tokenType.isInvalid
+    member x.isIgnore = x.tokenType.isIgnore
+    member x.isFinal = x.tokenType.isFinal
+    member x.isValid = x.tokenType.isValid
+    member x.show = sprintf "[%s ('%s'), %s]" x.case (x.lexeme.Replace("\n", "").Replace("\r", "")) (show x.location)
+
+and [<StructuredFormatDisplay("{show}")>] TokenType =
+    | Space
+    | Newline
+    | LineComment of string
+    | PartialLineComment of string
+    | BlockComment of string
+    | PartialBlockComment of string
     // Atomic lexical elements
-    | Letter
-    | Nonzero
-    | Digit
-    | IntegerLiteral
-    | Fraction
-    | PartialFloat
-    | FloatLiteral
-    | Alphanum
-    | Id
+    | Letter of string
+    | Nonzero of string
+    | Digit of string
+    | IntegerLiteral of string
+    | Fraction of string
+    | PartialFloat of string
+    | FloatLiteral of string
+    | Alphanum of string
+    | Id of string
     // Operators (single character)
     | Equal // =
     | Plus // +
@@ -63,381 +89,514 @@ type Token =
     | Main
     | Inherits
     | Local
+    | Void
     // Invalid (anything else)
-    | Invalid
+    | Invalid of string
+    | A
+    | B
+    | C
+    | D
 
-type LexicalError =
-    | InvalidNumber
-    | InvalidCharacter
+    member x.show =
+        match x with
+        | Space -> " "
+        | Newline -> "\n"
+        | LineComment lexeme -> lexeme
+        | PartialLineComment lexeme -> lexeme
+        | BlockComment lexeme -> lexeme
+        | PartialBlockComment lexeme -> lexeme
+        // Atomic lexical elements
+        | Letter lexeme -> lexeme
+        | Nonzero lexeme -> lexeme
+        | Digit lexeme -> lexeme
+        | IntegerLiteral lexeme -> lexeme
+        | Fraction lexeme -> lexeme
+        | PartialFloat lexeme -> lexeme
+        | FloatLiteral lexeme -> lexeme
+        | Alphanum lexeme -> lexeme
+        | Id lexeme -> lexeme
+        // Operators (single character)
+        | Equal -> "="
+        | Plus -> "+"
+        | Minus -> "-"
+        | Asterisk -> "*"
+        | Lt -> "<"
+        | Gt -> ">"
+        | Colon -> ":"
+        | Slash -> "/"
+        | SemiColon -> ";"
+        | Comma -> ","
+        | Period -> "."
+        | OpenBracket -> "("
+        | ClosedBracket -> ")"
+        | OpenSquareBracket -> "["
+        | ClosedSquareBracket -> "]"
+        | OpenBrace -> "{"
+        | ClosedBrace -> "}"
+        // Operators (double character)
+        | EqualEqual -> "=="
+        | LtEqual -> "<="
+        | GtEqual -> ">="
+        | LtGt -> "<>"
+        | ColonColon -> "::"
+        | SlashSlash -> "//"
+        | SlashAsterisk -> "/*"
+        | AsteriskSlash -> "*/"
+        // Keywords
+        | If -> "if"
+        | Then -> "then"
+        | Else -> "else"
+        | While -> "while"
+        | Class -> "class"
+        | Integer -> "integer"
+        | Float -> "float"
+        | Do -> "do"
+        | End -> "end"
+        | Public -> "public"
+        | Private -> "private"
+        | Or -> "or"
+        | And -> "and"
+        | Not -> "not"
+        | Read -> "read"
+        | Write -> "write"
+        | Return -> "return"
+        | Main -> "main"
+        | Inherits -> "inherits"
+        | Local -> "local"
+        | Invalid lexeme -> lexeme
+        | Void -> "void"
+        | A -> "a"
+        | B -> "b"
+        | C -> "c"
+        | D -> "d"
 
-let rec asString (token: Token) =
-    match token with
-    // Atomic lexical elements
-    | Letter -> "[a-zA-Z]"
-    | Nonzero -> "[1-9]"
-    | Digit -> "[0-9]"
-    | IntegerLiteral -> "((" + asString Nonzero + asString Digit + "*)|0)"
-    | Fraction -> "((\." + asString Digit + "*" + asString Nonzero + ")|\.0)"
-    | PartialFloat ->
-        "((" + asString IntegerLiteral + ")(\.)(" + asString Digit + "*" + ")(e(\+|-)?)?)"
-    | FloatLiteral ->
-        "((" + asString IntegerLiteral + ")(" + asString Fraction + ")(e(\+|-)?(" + asString IntegerLiteral + "))?)"
-    | Alphanum -> "(" + asString Letter + "|" + asString Digit + "|_)"
-    | Id -> "(" + asString Letter + "(" + asString Alphanum + ")*)"
-    // Operators (single character)
-    | Equal -> "="
-    | Plus -> "\+"
-    | Minus -> "-"
-    | Asterisk -> "\*"
-    | Lt -> "<"
-    | Gt -> ">"
-    | Colon -> ":"
-    | Slash -> "/"
-    | SemiColon -> ";"
-    | Comma -> ","
-    | Period -> "\."
-    | OpenBracket -> "\("
-    | ClosedBracket -> "\)"
-    | OpenSquareBracket -> "\["
-    | ClosedSquareBracket -> "\]"
-    | OpenBrace -> "\{"
-    | ClosedBrace -> "\}"
-    // Operators (double character)
-    | EqualEqual -> "=="
-    | LtEqual -> "<="
-    | GtEqual -> ">="
-    | LtGt -> "<>"
-    | ColonColon -> "::"
-    | SlashSlash -> "//"
-    | SlashAsterisk -> "/\*"
-    | AsteriskSlash -> "\*/"
-    // Keywords
-    | If -> "if"
-    | Then -> "then"
-    | Else -> "else"
-    | While -> "while"
-    | Class -> "class"
-    | Integer -> "integer"
-    | Float -> "float"
-    | Do -> "do"
-    | End -> "end"
-    | Public -> "public"
-    | Private -> "private"
-    | Or -> "or"
-    | And -> "and"
-    | Not -> "not"
-    | Read -> "read"
-    | Write -> "write"
-    | Return -> "return"
-    | Main -> "main"
-    | Inherits -> "inherits"
-    | Local -> "local"
-    | Invalid -> ".*"
+    member x.case = Utils.unionCaseName x
 
-let asRegex token = Regex("^" + (token |> asString) + "$")
+    static member fromString (text: String): Result<TokenType, string> =
+        match text with
+        | "id"
+        | "'id'" -> Ok(Id "Id")
+        | "class"
+        | "'class'" -> Ok Class
+        | "integerliteral"
+        | "'intNum'" -> Ok(IntegerLiteral "IntegerLiteral")
+        | "floatliteral"
+        | "'floatNum'" -> Ok(FloatLiteral "FloatLiteral")
+        | "if"
+        | "'if'" -> Ok If
+        | "then"
+        | "'then'" -> Ok Then
+        | "else"
+        | "'else'" -> Ok Else
+        | "while"
+        | "'while'" -> Ok While
+        | "equal"
+        | "'='"
+        | "eq" -> Ok Equal
+        | "period"
+        | "dot"
+        | "'.'" -> Ok Period
+        | "comma"
+        | "','" -> Ok Comma
+        | "semicolon"
+        | "semi"
+        | "';'" -> Ok SemiColon
+        | "colon"
+        | "':'" -> Ok Colon
+        | "coloncolon"
+        | "'sr'" -> Ok ColonColon
+        | "plus"
+        | "'+'" -> Ok Plus
+        | "minus"
+        | "'-'" -> Ok Minus
+        | "asterisk"
+        | "mult"
+        | "'*'" -> Ok Asterisk
+        | "slash"
+        | "div"
+        | "'/'" -> Ok Slash
+        | "or"
+        | "'or'" -> Ok Or
+        | "and"
+        | "'and'" -> Ok And
+        | "do"
+        | "'do'" -> Ok Do
+        | "end"
+        | "'end'" -> Ok End
+        | "not"
+        | "'not'" -> Ok Not
+        | "opensquarebracket"
+        | "lsqbr"
+        | "'['" -> Ok OpenSquareBracket
+        | "closedsquarebracket"
+        | "rsqbr"
+        | "']'" -> Ok ClosedSquareBracket
+        | "openbrace"
+        | "lcurbr"
+        | "'{'" -> Ok OpenBrace
+        | "closedbrace"
+        | "rcurbr"
+        | "'}'" -> Ok ClosedBrace
+        | "openbracket"
+        | "lpar"
+        | "'('" -> Ok OpenBracket
+        | "closedbracket"
+        | "rpar"
+        | "')'" -> Ok ClosedBracket
+        | "inherits"
+        | "'inherits'" -> Ok Inherits
+        | "local"
+        | "'local'" -> Ok Local
+        | "main"
+        | "'main'" -> Ok Main
+        | "equalequal"
+        | "eqeq"
+        | "'=='" -> Ok EqualEqual
+        | "ltgt"
+        | "neq"
+        | "'<>'" -> Ok LtGt
+        | "gtequal"
+        | "geq"
+        | "'>='" -> Ok GtEqual
+        | "gt"
+        | "'>'" -> Ok Gt
+        | "ltequal"
+        | "leq"
+        | "'<='" -> Ok LtEqual
+        | "lt"
+        | "'<'" -> Ok Lt
+        | "read"
+        | "'read'" -> Ok Read
+        | "write"
+        | "'write'" -> Ok Write
+        | "return"
+        | "'return'" -> Ok Return
+        | "float"
+        | "'float'" -> Ok Float
+        | "integer"
+        | "'integer'" -> Ok Integer
+        | "void"
+        | "'void'" -> Ok Void
+        | "private"
+        | "'private'" -> Ok Private
+        | "public"
+        | "'public'" -> Ok Public
+        | symbol -> Error("Invalid token: " + symbol)
 
-let isMatch token lexeme = (asRegex token).IsMatch(lexeme)
+    member x.isPartial =
+        match x with
+        | Letter _
+        | Nonzero _
+        | Digit _
+        | Fraction _
+        | PartialFloat _
+        | Alphanum _ -> true
+        | _ -> false
 
-let tryMatch (lexeme: string) (token: Token) =
-    match (isMatch token lexeme) with
-    | true -> Some(token, lexeme)
-    | false -> None
+    member x.isInvalid =
+        match x with
+        | Invalid _
+        | A
+        | B
+        | C
+        | D -> true
+        | _ -> false
 
-let precedenceHighToLowTokens =
-    [ Equal
-      Plus
-      Minus
-      Asterisk
-      Lt
-      Gt
-      Colon
-      Slash
-      SemiColon
-      Comma
-      Period
-      OpenBracket
-      ClosedBracket
-      OpenSquareBracket
-      ClosedSquareBracket
-      OpenBrace
-      ClosedBrace
-      EqualEqual
-      LtEqual
-      GtEqual
-      LtGt
-      ColonColon
-      SlashSlash
-      SlashAsterisk
-      AsteriskSlash
-      If
-      Then
-      Else
-      While
-      Class
-      Integer
-      Float
-      Do
-      End
-      Public
-      Private
-      Or
-      And
-      Not
-      Read
-      Write
-      Return
-      Main
-      Inherits
-      Local
-      Id
-      FloatLiteral
-      IntegerLiteral
-      Letter
-      Nonzero
-      Digit
-      Fraction
-      PartialFloat
-      Alphanum ]
-
-let partialTokens =
-    [ Letter; Nonzero; Digit; Fraction; PartialFloat; Alphanum ]
-
-let matched (lexeme: string): (Token * string) list =
-    precedenceHighToLowTokens
-    |> List.map (tryMatch lexeme)
-    |> List.choose id
-
-type PartialResult =
-    { token: Token
-      index: int
-      lexeme: string }
-
-[<StructuredFormatDisplay("{display}")>]
-type Error =
-    { kind: LexicalError
-      lexeme: string
-      line: int
-      column: int }
-    override m.ToString() = "[" + m.kind.ToString() + ", " + m.lexeme + ", " + m.line.ToString() + "]"
-    member m.display = m.ToString()
-    member m.displayDetailed =
-        "[LexicalError (" + m.kind.ToString() + ", line " + m.line.ToString() + ", column " + m.column.ToString()
-        + "): \"" + m.lexeme + "\"]"
-
-[<StructuredFormatDisplay("{display}")>]
-type Result =
-    { token: Token
-      lexeme: string
-      line: int
-      column: int }
-    override m.ToString() = "[" + m.token.ToString() + ", " + m.lexeme + ", " + m.line.ToString() + "]"
-    member m.display = m.ToString()
-
-type Outcome =
-    | Result of Result
-    | Error of Error
-
-let makeOutcome (partialResult: PartialResult) (line: int) (column: int) =
-    match partialResult.token with
-    // Operators (single character)
-    | Equal // =
-    | Plus // +
-    | Minus // -
-    | Asterisk // *
-    | Lt // <
-    | Gt // >
-    | Colon // :
-    | Slash // /
-    | SemiColon // ;
-    | Comma // ,
-    | Period // .
-    | OpenBracket // (
-    | ClosedBracket // )
-    | OpenSquareBracket // [
-    | ClosedSquareBracket // ]
-    | OpenBrace // {
-    | ClosedBrace // }
-    | EqualEqual // ==
-    | LtEqual // <=
-    | GtEqual // >=
-    | LtGt // <>
-    | ColonColon // ::
-    | SlashSlash // //
-    | SlashAsterisk
-    | AsteriskSlash
-    | If
-    | Then
-    | Else
-    | While
-    | Class
-    | Integer
-    | Float
-    | Do
-    | End
-    | Public
-    | Private
-    | Or
-    | And
-    | Not
-    | Read
-    | Write
-    | Return
-    | Main
-    | Inherits
-    | Local
-    | Id
-    | FloatLiteral
-    | IntegerLiteral ->
-        Result
-            { token = partialResult.token
-              lexeme = partialResult.lexeme
-              line = line
-              column = column }
-    | Fraction
-    | PartialFloat ->
-        Error
-            { kind = InvalidNumber
-              lexeme = partialResult.lexeme
-              line = line
-              column = column }
-    | Invalid
-    | _ ->
-        Error
-            { kind = InvalidCharacter
-              lexeme = partialResult.lexeme
-              line = line
-              column = column }
-
-let tokenizeChars (stream: char list) =
-    let mutable index = 0
-    let mutable strBuffer = stream.GetSlice(Some 0, Some index)
-    let mutable keepLooking = true
-    let mutable found = []
-    let mutable result: PartialResult option = None
-    let isPartialToken = fun token -> List.contains token partialTokens
-
-    while keepLooking = true do
-        let newResult = matched (strBuffer |> String.Concat)
-        keepLooking <- (List.length newResult) > 0 && index + 1 <= (List.length stream) - 1
-
-        if keepLooking = true then
-            found <- newResult
-            let (token, lexeme) = newResult.[0]
-            if not (isPartialToken token) then
-                result <-
-                    Some
-                        { token = token
-                          index = index
-                          lexeme = lexeme }
-            index <- index + 1
-            strBuffer <- stream.GetSlice(Some 0, Some index)
-        else
-            if List.length newResult > 0 then
-                found <- newResult
-                // Here the first element (index 0) has highest priority on token type
-                let (token, lexeme) = newResult.[0]
-                if not (isPartialToken token) then
-                    result <-
-                        Some
-                            { token = token
-                              index = index
-                              lexeme = lexeme }
-            if not (result = None) then
-                result <- result
-            else if List.length found > 0 then
-                // Here the first element (index 0) has highest priority on token type
-                let (token, lexeme) = found.[0]
-                result <-
-                    Some
-                        { token = token
-                          index = index
-                          lexeme = lexeme }
-            else if List.forall (fun e -> (strBuffer |> String.Concat) <> e) [ " "; "\t" ] then
-                result <-
-                    Some
-                        { token = Invalid
-                          index = index
-                          lexeme = (strBuffer |> String.Concat) }
-            else
-                result <- None
-
-    result
-
-let tokenizeStrings (stream: string list): Outcome list =
-    let mutable outcomes = []
-
-    for (row, line) in List.mapi (fun i e -> (i, e)) stream do
-        let mutable chars = List.ofSeq line
-        let mutable column: int = 0
-
-        while column < List.length chars do
-            let token = tokenizeChars (chars.GetSlice(Some column, None))
-
+    member x.isIgnore = x = Space || x = Newline
+    member x.isFinal = not x.isPartial && not x.isInvalid && not x.isIgnore
+    member x.isValid = x.isPartial || x.isFinal
+    member x.pattern =
+        let rec asPattern (token: TokenType) =
             match token with
-            | Some result ->
-                column <-
-                    column + (if result.index > 0 then result.lexeme.Length
-                              else 1)
-                outcomes <- outcomes @ [ (makeOutcome result (row + 1) column) ]
-            | None -> column <- column + 1
+            | Space -> @"\s"
+            | Newline -> @"\n"
+            | LineComment lexeme -> asPattern (PartialLineComment lexeme) + asPattern Newline
+            | PartialLineComment _ -> @"//(?:(?!\n).)*"
+            | BlockComment lexeme -> asPattern (PartialBlockComment lexeme) + asPattern AsteriskSlash
+            | PartialBlockComment _ -> @"\/\*(?:(?!\*\/).|\n)*"
+            // Atomic lexical elements
+            | Letter _ -> @"[a-zA-Z]"
+            | Nonzero _ -> @"[1-9]"
+            | Digit _ -> @"[0-9]"
+            | IntegerLiteral lexeme -> @"((" + asPattern (Nonzero lexeme) + asPattern (Digit lexeme) + "*)|0)"
+            | Fraction lexeme -> @"((\." + asPattern (Digit lexeme) + "*" + asPattern (Nonzero lexeme) + ")|\.0)"
+            | PartialFloat lexeme ->
+                @"((" + asPattern (IntegerLiteral lexeme) + @")(\.)(" + asPattern (Digit lexeme) + @"*" + @")(e(\+|-)?)?)"
+            | FloatLiteral lexeme ->
+                @"((" + asPattern (IntegerLiteral lexeme) + @")(" + asPattern (Fraction lexeme) + @")(e(\+|-)?(" + asPattern (IntegerLiteral lexeme)
+                + @"))?)"
+            | Alphanum lexeme -> @"(" + asPattern (Letter lexeme) + @"|" + asPattern (Digit lexeme) + @"|_)"
+            | Id lexeme -> @"(" + asPattern (Letter lexeme) + @"(" + asPattern (Alphanum lexeme) + @")*)"
+            // Operators (single character)
+            | Equal -> @"="
+            | Plus -> @"\+"
+            | Minus -> @"-"
+            | Asterisk -> @"\*"
+            | Lt -> @"<"
+            | Gt -> @">"
+            | Colon -> @":"
+            | Slash -> @"/"
+            | SemiColon -> @";"
+            | Comma -> @","
+            | Period -> @"\."
+            | OpenBracket -> @"\("
+            | ClosedBracket -> @"\)"
+            | OpenSquareBracket -> @"\["
+            | ClosedSquareBracket -> @"\]"
+            | OpenBrace -> @"\{"
+            | ClosedBrace -> @"\}"
+            // Operators (double character)
+            | EqualEqual -> @"=="
+            | LtEqual -> @"<="
+            | GtEqual -> @">="
+            | LtGt -> @"<>"
+            | ColonColon -> @"::"
+            | SlashSlash -> @"//"
+            | SlashAsterisk -> @"/\*"
+            | AsteriskSlash -> @"\*/"
+            // Keywords
+            | If -> @"if"
+            | Then -> @"then"
+            | Else -> @"else"
+            | While -> @"while"
+            | Class -> @"class"
+            | Integer -> @"integer"
+            | Float -> @"float"
+            | Do -> @"do"
+            | End -> @"end"
+            | Public -> @"public"
+            | Private -> @"private"
+            | Or -> @"or"
+            | And -> @"and"
+            | Not -> @"not"
+            | Read -> @"read"
+            | Write -> @"write"
+            | Return -> @"return"
+            | Main -> @"main"
+            | Inherits -> @"inherits"
+            | Local -> @"local"
+            | Void -> @"void"
+            | Invalid _ -> "[\s\S]*"
+            | A -> @"A"
+            | B -> @"B"
+            | C -> @"C"
+            | D -> @"D"
 
-    outcomes
+        @"\A" + asPattern x + @"\z"
 
-let tokenizeFile (filePath: string): Outcome list =
-    tokenizeStrings (Utils.read filePath)
+[<RequireQualifiedAccess>]
+module Lexer =
+    Regex.CacheSize = 70 |> ignore
 
-type InputType =
-    | FilePath of string
-    | Text of string list
+    let precedenceHighToLowTokens (lexeme: string) =
+        [ Newline
+          Space
+          LineComment lexeme
+          PartialLineComment lexeme
+          BlockComment lexeme
+          PartialBlockComment lexeme
+          Equal
+          Plus
+          Minus
+          Asterisk
+          Lt
+          Gt
+          Colon
+          Slash
+          SemiColon
+          Comma
+          Period
+          OpenBracket
+          ClosedBracket
+          OpenSquareBracket
+          ClosedSquareBracket
+          OpenBrace
+          ClosedBrace
+          EqualEqual
+          LtEqual
+          GtEqual
+          LtGt
+          ColonColon
+          SlashSlash
+          SlashAsterisk
+          AsteriskSlash
+          If
+          Then
+          Else
+          While
+          Class
+          Integer
+          Float
+          Do
+          End
+          Public
+          Private
+          Or
+          And
+          Not
+          Read
+          Write
+          Return
+          Main
+          Inherits
+          Local
+          Void
+          Id lexeme
+          FloatLiteral lexeme
+          IntegerLiteral lexeme
+          Letter lexeme
+          Nonzero lexeme
+          Digit lexeme
+          Fraction lexeme
+          PartialFloat lexeme
+          Alphanum lexeme
+          A
+          B
+          C
+          D
+          Invalid lexeme ]
 
-let tokenize (input: InputType): Outcome list =
-    match input with
-    | FilePath path -> tokenizeFile path
-    | Text stream -> tokenizeStrings stream
+    let isMatch (token: TokenType) (lexeme: string) = Regex.IsMatch(lexeme, token.pattern, RegexOptions.ExplicitCapture)
 
-let lexicalErrors (outcomes: Outcome list): Error list =
-    let errorChooser =
-        fun e ->
-            match e with
-            | Error e -> Some e
-            | _ -> None
-    List.choose errorChooser outcomes
+    let tryMatch (lexeme: string) (tokenType: TokenType) =
+        match (isMatch tokenType lexeme) with
+        | true -> Some tokenType
+        | false -> None
 
-let display (outcomes: Outcome list): string =
-    let mutable str = ""
+    let matched (lexeme: string): TokenType list =
+        //    let tokenUnionCaseNames = Utils.unionCaseNames<TokenType>
+        //    let precedenceItemNames = precedenceHighToLowTokens lexeme |> List.map Utils.unionCaseName |> Set.ofList
+        //    let missingTokensInPrecedenceList = Set.difference (tokenUnionCaseNames)  precedenceItemNames
 
-    let mutable currentLine =
-        match outcomes.[0] with
-        | Result tr -> tr.line
-        | Error e -> e.line
+        //    if Set.count missingTokensInPrecedenceList <> 0 then
+        //        failwith ("Missing tokens in precedence list: " + String.concat ", " missingTokensInPrecedenceList)
 
-    for outcome in outcomes do
-        let line =
-            match outcome with
-            | Result tr -> tr.line
-            | Error e -> e.line
+        precedenceHighToLowTokens lexeme
+        |> List.map (tryMatch lexeme)
+        |> List.choose id
 
-        let outcomeAsString =
-            match outcome with
-            | Result tr -> sprintf "%A" tr
-            | Error e -> sprintf "%A" e
+    let inline tokenized (lexeme: ^T) =
+        List.head (matched (show lexeme) @ [ Invalid(show lexeme) ])
 
-        if line = currentLine then
-            str <-
-                if str = "" then outcomeAsString
-                else str + " " + outcomeAsString
-        else
-            currentLine <- line
-            str <- str + "\n" + outcomeAsString
-    str
+    let makeTokenStream (text: string) =
+        let withoutIgnoreTokenHead (tokens: Token list) =
+            match tokens with
+            | head :: tail when head.tokenType.isIgnore = true -> tail
+            | _ -> tokens
 
-let writeTokens (outcomes: Outcome list) (path: string) =
-    Utils.write (display outcomes) path
+        let folder (tokensFound: Token list, location: Location) (item: char) =
+            let tokenizedItem = tokenized item
 
-let writeErrors (outcomes: Outcome list) (path: string) =
-    Utils.write
-        (lexicalErrors outcomes
-         |> List.map (fun e -> e.displayDetailed)
-         |> List.fold (fun state e ->
-             if state = "" then e
-             else state + "\n" + e) "") path
+            let lineOffset =
+                if tokenizedItem = Newline then 1 else 0
+
+            let columnOffset =
+                if tokenizedItem = Newline then 0 else 1
+
+            let location =
+                { line = location.line + lineOffset
+                  column = columnOffset * location.column + columnOffset }
+
+            match tokensFound with
+            | token :: rest ->
+                let longerLexeme = token.lexeme + show item
+                let longerToken = tokenized longerLexeme
+                match longerToken with
+                | _ when longerToken.isValid ->
+                    ({ tokenType = longerToken
+                       location =
+                           { line = token.location.line
+                             column = token.location.column } }
+                     :: rest, location)
+                | _ when token.tokenType.isIgnore ->
+                    ({ tokenType = tokenizedItem
+                       location =
+                           { line = location.line
+                             column = location.column } }
+                     :: rest, location)
+                | _ ->
+                    ({ tokenType = tokenizedItem
+                       location =
+                           { line = location.line
+                             column = location.column } }
+                     :: tokensFound, location)
+            | [] ->
+                ({ tokenType = tokenizedItem
+                   location =
+                       { line = location.line
+                         column = location.column } }
+                 :: tokensFound, location)
+
+        List.fold folder
+            ([],
+             { line = 1
+               column = 1 }) (text |> List.ofSeq)
+        |> fst
+        |> withoutIgnoreTokenHead
+        |> List.rev
+
+    let tokenize (input: InputType) =
+        match input with
+        | FilePath path -> makeTokenStream (Utils.read path)
+        | Text text -> makeTokenStream text
+
+    let sanitizeTokens (tokens: Token list) =
+        let sanitizeTokenFilter (token: Token) =
+            match token.tokenType with
+            | LineComment _
+            | BlockComment _ -> false
+            | tokenType when tokenType.isFinal -> true
+            | _ -> false
+
+        List.filter sanitizeTokenFilter tokens
+
+    let drawTokens (tokens: Token list) =
+        tokens
+        |> List.map (fun token -> show token)
+        |> String.concat "\n"
+
+    let drawValidTokens (tokens: Token list) =
+        tokens
+        |> List.filter (fun token -> token.tokenType.isValid)
+        |> List.map (fun token -> show token)
+        |> String.concat "\n"
+
+    let drawInvalidTokens (tokens: Token list) =
+        tokens
+        |> List.filter (fun token -> token.tokenType.isInvalid)
+        |> List.map (fun token -> show token)
+        |> String.concat "\n"
+
+    let drawSanitizedTokens (tokens: Token list) =
+        tokens
+        |> sanitizeTokens
+        |> List.map (fun token -> show token)
+        |> String.concat "\n"
+
+    let display (tokens: Token list): string =
+        let mutable str = ""
+
+        let mutable currentLine = tokens.[0].location.line
+
+        for token in tokens do
+            let line = token.location.line
+
+            let outcomeAsString = show token
+
+            if line = currentLine then
+                str <- if str = "" then outcomeAsString else str + " " + outcomeAsString
+            else
+                currentLine <- line
+                str <- str + "\n" + outcomeAsString
+        str
+
+    let writeTokens (tokens: Token list) (path: string) =
+        Utils.write (display tokens) path
+
+    let writeErrors (tokens: Token list) (path: string) =
+        Utils.write
+            (tokens
+             |> List.filter (fun token -> token.tokenType.isPartial)
+             |> List.map show
+             |> List.fold (fun state e ->
+                 if state = "" then e else state + "\n" + e) "") path

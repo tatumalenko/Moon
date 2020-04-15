@@ -1,0 +1,213 @@
+START -> PROG . 
+
+PROG -> PROG_1 #MakeNodeClassDeclList PROG_2 #MakeNodeFuncDefList main FUNCBODY #MakeNodeMainFuncBody #MakeNodeProg #MakeNodeEndProgram  . 
+
+PROG_1 -> CLASSDECL PROG_1  . 
+PROG_1 ->  . 
+
+PROG_2 -> FUNCDEF PROG_2  . 
+PROG_2 ->  . 
+
+CLASSDECL -> class id #GetData #MakeNodeId CLASSDECL_1 #MakeNodeInheritList lcurbr CLASSDECL_2 rcurbr #MakeNodeMemberList semi #MakeNodeClassDecl  . 
+
+CLASSDECL_1 -> inherits id #GetData #MakeNodeIdi CLASSDECL_3  . 
+CLASSDECL_1 ->  . 
+
+CLASSDECL_2 -> VISIBILITY MEMBERDECL CLASSDECL_2  . 
+CLASSDECL_2 ->  . 
+
+CLASSDECL_3 -> comma id #GetData #MakeNodeIdi CLASSDECL_3  . 
+CLASSDECL_3 ->  .
+
+FUNCDEF -> FUNCHEAD FUNCBODY #MakeNodeFuncBody semi #MakeNodeFuncDef  . 
+
+FUNCHEAD -> id FUNCHEAD_1 lpar FPARAMS rpar colon TYPEORVOID  . 
+
+FUNCHEAD_1 -> #GetData #MakeNodeType sr id #GetData #MakeNodeId  .
+FUNCHEAD_1 -> #MakeNodeEpsilon #GetData #MakeNodeId  .
+
+TYPEORVOID -> TYPE .
+TYPEORVOID -> void #GetData #MakeNodeType  .
+
+MEMBERDECL -> id MEMBERDECL_1  .
+MEMBERDECL -> INTEGERORFLOAT VARDECL_1 #MakeNodeVarDecl  .
+
+MEMBERDECL_1 -> #GetData #MakeNodeType VARDECL_1 #MakeNodeVarDecl  .
+MEMBERDECL_1 -> #GetData #MakeNodeId FUNCDECLIDLESS #MakeNodeFuncDecl  .
+
+VARDECL -> INTEGERORFLOAT VARDECL_1 #MakeNodeVarDecl  . 
+VARDECL -> id #GetData #MakeNodeType VARDECL_1 #MakeNodeVarDecl  .
+
+VARDECL_1 -> id #GetData #MakeNodeId VARDECL_2 #MakeNodeDimList semi  . 
+
+VARDECL_2 -> ARRAYSIZE VARDECL_2  . 
+VARDECL_2 ->  .
+
+FUNCDECLIDLESS -> lpar FPARAMS rpar colon TYPEORVOID semi  .
+
+EXPR -> ARITHEXPR EXPR_1  .
+
+EXPR_1 -> RELOP ARITHEXPR #MakeNodeRelExpr  . 
+EXPR_1 -> .
+
+ARITHEXPR -> TERM ARITHEXPR_1  . 
+
+ARITHEXPR_1 -> ADDOP #GetData TERM ARITHEXPR_1 #MakeNodeAddOp  . 
+ARITHEXPR_1 ->  . 
+
+RELEXPR -> ARITHEXPR RELOP ARITHEXPR #MakeNodeRelExpr  . 
+
+FACTOR -> id #GetData #MakeNodeId FACTOR_1 #MakeNodeVarElementList  .
+FACTOR -> intnum #GetData #MakeNodeNum  . 
+FACTOR -> floatnum #GetData #MakeNodeNum  . 
+FACTOR -> lpar ARITHEXPR rpar  . 
+FACTOR -> not #GetData FACTOR #MakeNodeNot  . 
+FACTOR -> SIGN FACTOR #MakeNodeSign  . 
+
+FACTOR_1 -> IDNEST_1 FACTOR_2  .
+
+FACTOR_2 -> #MakeNodeDataMember dot FACTOR_3  .
+FACTOR_2 -> .
+
+FACTOR_3 -> id #GetData #MakeNodeId FACTOR_4  .
+FACTOR_3 -> .
+
+FACTOR_4 -> IDNEST_2 #MakeNodeIndexList #MakeNodeDataMember dot VARIABLE_3  .
+FACTOR_4 -> IDNEST_3 FACTOR_5  .
+
+FACTOR_5 -> #MakeNodeDataMember dot VARIABLE_3  .
+FACTOR_5 -> .
+
+FUNCBODY -> FUNCBODY_1 do FUNCBODY_2 end  . 
+
+FUNCBODY_1 -> local FUNCBODY_3  . 
+FUNCBODY_1 ->  . 
+
+FUNCBODY_2 -> STATEMENT FUNCBODY_2  . 
+FUNCBODY_2 ->  . 
+
+FUNCBODY_3 -> VARDECL FUNCBODY_3  . 
+FUNCBODY_3 ->  . 
+
+FPARAMS -> TYPE id #GetData #MakeNodeId FPARAMS_1 #MakeNodeDimList #MakeNodeFParam FPARAMS_2 #MakeNodeDimList #MakeNodeFParamList  . 
+FPARAMS ->  . 
+
+FPARAMSTAIL -> comma TYPE id #GetData #MakeNodeId FPARAMSTAIL_1 #MakeNodeDimList #MakeNodeFParam  . 
+
+FPARAMSTAIL_1 -> ARRAYSIZE FPARAMSTAIL_1  . 
+FPARAMSTAIL_1 ->  .
+
+FPARAMS_1 -> ARRAYSIZE FPARAMS_1  . 
+FPARAMS_1 ->  . 
+
+FPARAMS_2 -> FPARAMSTAIL FPARAMS_2  . 
+FPARAMS_2 ->  . 
+
+APARAMS -> EXPR APARAMS_1  . 
+APARAMS ->  . 
+
+APARAMS_1 -> APARAMSTAIL APARAMS_1  . 
+APARAMS_1 ->  . 
+
+APARAMSTAIL -> comma EXPR  . 
+
+INDEX -> lsqbr ARITHEXPR rsqbr  . 
+
+STATBLOCK -> do STATBLOCK_1 end  . 
+STATBLOCK -> STATEMENT  . 
+STATBLOCK ->  . 
+
+STATBLOCK_1 -> STATBLOCK_2 #MakeNodeStatBlock  . 
+
+STATBLOCK_2 -> STATEMENT STATBLOCK_2  .
+STATBLOCK_2 ->  .
+
+STATEMENT -> id #GetData #MakeNodeId STATEMENT_1  .
+STATEMENT -> if lpar RELEXPR rpar then STATBLOCK else STATBLOCK semi #MakeNodeIfStat  . 
+STATEMENT -> while lpar RELEXPR rpar STATBLOCK semi #MakeNodeWhileStat  . 
+STATEMENT -> read lpar VARIABLE rpar semi #MakeNodeReadStat  . 
+STATEMENT -> write lpar EXPR rpar semi #MakeNodeWriteStat  . 
+STATEMENT -> return lpar EXPR rpar semi #MakeNodeReturnStat  . 
+
+STATEMENT_1 -> IDNEST_1 STATEMENT_6  .
+
+STATEMENT_6 -> STATEMENT_2  .
+STATEMENT_6 -> #MakeNodeVarElementList ASSIGNSTAT semi  .
+
+STATEMENT_2 -> #MakeNodeDataMember dot STATEMENT_3  .
+STATEMENT_2 -> semi  .
+
+STATEMENT_3 -> id #GetData #MakeNodeId STATEMENT_4  .
+STATEMENT_3 -> VARIABLE_2 #MakeNodeIndexList #MakeNodeDataMember #MakeNodeVarElementList ASSIGNSTAT semi  . 
+
+STATEMENT_4 -> IDNEST_2 #MakeNodeIndexList #MakeNodeDataMember dot VARIABLE_3 VARIABLE_2 #MakeNodeIndexList #MakeNodeDataMember #MakeNodeVarElementList ASSIGNSTAT semi  .  
+STATEMENT_4 -> IDNEST_3 STATEMENT_5  .
+
+STATEMENT_5 -> #MakeNodeDataMember dot VARIABLE_3 VARIABLE_2 #MakeNodeIndexList #MakeNodeDataMember #MakeNodeVarElementList ASSIGNSTAT semi  .  
+STATEMENT_5 -> semi  .
+
+ASSIGNSTAT -> ASSIGNOP EXPR #MakeNodeAssignStat  . 
+
+TERM -> FACTOR TERM_1  .
+
+TERM_1 -> MULTOP #GetData FACTOR TERM_1 #MakeNodeMultOp  . 
+TERM_1 ->  . 
+
+VARIABLE -> id #GetData #MakeNodeId VARIABLE_5 #MakeNodeDataMember #MakeNodeVarElementList  .
+
+VARIABLE_5 -> VARIABLE_1 VARIABLE_2 #MakeNodeIndexList  .
+VARIABLE_5 ->  .
+
+VARIABLE_1  -> IDNEST_1 VARIABLE_4  .
+
+VARIABLE_2  -> INDEX VARIABLE_2  . 
+VARIABLE_2  ->  . 
+
+VARIABLE_3 -> IDNEST VARIABLE_3  . 
+VARIABLE_3 ->  . 
+
+VARIABLE_4 -> #MakeNodeDataMember dot VARIABLE_3  .
+
+IDNEST -> id #GetData #MakeNodeId IDNEST_1 #MakeNodeDataMember dot  .
+
+IDNEST_1 -> IDNEST_2 #MakeNodeIndexList  .
+IDNEST_1 -> IDNEST_3  . 
+
+IDNEST_2 -> INDEX IDNEST_2  . 
+IDNEST_2 ->  . 
+
+IDNEST_3 -> lpar APARAMS rpar #MakeNodeAParamList #MakeNodeFunctionCall  .
+
+ASSIGNOP -> eq  . 
+
+VISIBILITY -> public  . 
+VISIBILITY -> private  . 
+
+ADDOP -> plus  . 
+ADDOP -> minus  . 
+ADDOP -> or  . 
+
+INTEGERORFLOAT -> integer #GetData #MakeNodeType  .
+INTEGERORFLOAT -> float #GetData #MakeNodeType  .
+
+TYPE -> INTEGERORFLOAT  .
+TYPE -> id #GetData #MakeNodeType  . 
+
+RELOP -> eqeq #GetData #MakeNodeRelOp  . 
+RELOP -> neq #GetData #MakeNodeRelOp  . 
+RELOP -> lt #GetData #MakeNodeRelOp  . 
+RELOP -> gt #GetData #MakeNodeRelOp  . 
+RELOP -> leq #GetData #MakeNodeRelOp  . 
+RELOP -> geq #GetData #MakeNodeRelOp  . 
+
+ARRAYSIZE -> lsqbr MAYBEINTNUM rsqbr  . 
+
+MAYBEINTNUM -> intnum #GetData #MakeNodeNum  .
+MAYBEINTNUM -> .
+
+SIGN -> plus  . 
+SIGN -> minus  . 
+
+MULTOP -> mult  . 
+MULTOP -> div  . 
+MULTOP -> and  . 

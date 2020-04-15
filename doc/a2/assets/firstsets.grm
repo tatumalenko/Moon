@@ -1,0 +1,73 @@
+Start: { id class main }
+Prog: { id class main }
+Prog1: { class \epsilon }
+Prog2: { id \epsilon }
+ClassDecl: { class }
+ClassDecl1: { inherits \epsilon }
+ClassDecl2: { public private \epsilon }
+ClassDecl3: { , \epsilon }
+Visibility: { public private }
+MemberDecl: { id integer float }
+MemberDecl1: { id ( }
+FuncHead: { id }
+FuncHead1: { :: \epsilon }
+FuncDef: { id }
+FuncDeclIdless: { ( }
+FuncBody: { do local }
+FuncBody1: { local \epsilon }
+FuncBody2: { id if while read write return \epsilon }
+FuncBody3: { id integer float \epsilon }
+VarDecl: { id integer float }
+VarDecl1: { id }
+VarDecl2: { [ \epsilon }
+Stat: { id if while read write return }
+Stat1: { = ; . ( [ }
+Stat2: { ; . }
+Stat3: { id = [ }
+Stat4: { . ( [ }
+Stat5: { ; . }
+Stat6: { = ; . }
+AssignStat: { = }
+StatBlock: { id if while do read write return \epsilon }
+StatBlock1: { id if while read write return \epsilon }
+Expr: { intnum floatnum id + - ( not }
+Expr1: { < > == <= >= <> \epsilon }
+RelExpr: { intnum floatnum id + - ( not }
+ArithExpr: { intnum floatnum id + - ( not }
+ArithExpr1: { + - or \epsilon }
+Sign: { + - }
+Term: { intnum floatnum id + - ( not }
+Term1: { * / and \epsilon }
+Factor: { intnum floatnum id + - ( not }
+Factor1: { . ( [ \epsilon }
+Factor2: { . \epsilon }
+Factor3: { id \epsilon }
+Factor4: { . ( [ }
+Factor5: { . \epsilon }
+Var: { id }
+Var1: { . ( [ }
+Var2: { [ \epsilon }
+Var3: { id \epsilon }
+Var4: { . }
+IdNest: { id }
+IdNest1: { ( [ \epsilon }
+IdNest2: { [ \epsilon }
+IdNest3: { ( }
+Index: { [ }
+ArraySize: { [ }
+Type: { id integer float }
+TypeOrVoid: { id integer float void }
+FParams: { id integer float \epsilon }
+FParams1: { [ \epsilon }
+FParams2: { , \epsilon }
+AParams: { intnum floatnum id + - ( not \epsilon }
+AParams1: { , \epsilon }
+FParamsTail: { , }
+FParamsTail1: { [ \epsilon }
+AParamsTail: { , }
+AssignOp: { = }
+RelOp: { < > == <= >= <> }
+AddOp: { + - or }
+MultOp: { * / and }
+IntegerOrFloat: { integer float }
+MaybeIntNum: { intnum \epsilon }

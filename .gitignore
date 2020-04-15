@@ -29,6 +29,7 @@ bin
 
 # User-specific stuff
 /.idea
+**/.idea
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
@@ -418,7 +419,7 @@ healthchecksdb
 MigrationBackup/
 
 # Ionide
-.ionide/*
+.ionide
 
 # MacOS
 **/.DS_Store

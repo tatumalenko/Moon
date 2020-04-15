@@ -1,5 +1,5 @@
-Moon
-====
+# Moon
+
 [![Build Status](https://github.com/tatumalenko/Moon/workflows/build/badge.svg)](https://github.com/tatumalenko/Moon/actions)
 [![Coverage Status](https://coveralls.io/repos/github/tatumalenko/Moon/badge.svg?branch=master&t=Bx5cMI&service=github)](https://coveralls.io/github/tatumalenko/Moon?branch=master)
 [![.Net Core Version](https://badge.fury.io/gh/dotnet%2Fcore.svg)](https://badge.fury.io/gh/dotnet%2Fcore)
@@ -8,17 +8,35 @@ Moon
 > A Moon compiler written in F# using the .NET Core framework.
 
 # Assignments
+
 ## Assignment 1
+
 You will find the assignment document located in `doc/a1/a1_40055122.pdf`.
 
+## Assignment 2
+
+You will find the assignment document located in `doc/a2/a2_40055122.pdf`.
+
+## Assignment 3
+
+You will find the assignment document located in `doc/a3/a3_40055122.pdf`.
+
+## Assignment 4
+
+You will find the assignment document located in `doc/a4/a4_40055122.pdf`.
+
 # Install
+
 **Requirements:** Depending on the approach used to execute the program, either the .NET Core 3.1.1 SDK or Docker is required to run the program. The following sections outline how to use either approaches.
 
 # Use
+
 ## Run
+
 There are two ways to run the command line program.
 
 ### 1. Using Docker (Recommended):
+
 ```sh
 $ docker run --rm tatumalenko/moon lex --text "$(cat ~/Desktop/input.src)"
 ```
@@ -47,6 +65,7 @@ $ make run path="~/Desktop/input.src" outdir="~/Desktop"
 This will output `input.outlextokens` and `input.outlexerrors` files into the `~/Desktop` directory. This unfortunately to install the `dotnet core 3.1.1` SDK and associated dependencies, which may be a hassle. For this reason, approach #1 is the recommended one.
 
 ## Test
+
 The unit tests can only be executed by using the source code and `dotnet core` SDK.
 
 ```sh
