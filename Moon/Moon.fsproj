@@ -18,6 +18,7 @@
         <Compile Include="SymbolTable.fs" />
         <Compile Include="Semanter.fs" />
         <Compile Include="Main.fs" />
+        <Folder Include="resources" />
     </ItemGroup>
 
     <ItemGroup>

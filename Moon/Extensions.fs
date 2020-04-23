@@ -63,6 +63,11 @@ module Extensions =
             }
 
     module List =
+        let range x xs =
+            match x > List.length xs - 1 with
+            | true -> []
+            | false -> xs.[x..List.length xs - 1]
+
         let flatten xss =
             let rec folder state xs =
                 state @ xs

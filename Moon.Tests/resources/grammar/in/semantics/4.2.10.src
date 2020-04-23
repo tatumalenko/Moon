@@ -1,0 +1,11 @@
+class A {
+  public integer var1;
+  public integer var2;
+
+  public foo() : integer;
+}
+
+main
+  local
+  do
+  end

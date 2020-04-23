@@ -23,17 +23,17 @@ type SemanticError =
     | UndeclaredMemberFunction of Token * string
     | UndeclaredClass of Token
 
-    | TypeMismatch of Token * SymbolType * SymbolType // Different types between lhs/rhs
-    | TypeDimensionMismatch of Token * int * int // Different dimensions between decl/def
+    | TypeAssignmentMismatch of Token * string * string // Different types between lhs/rhs
+    | TypeDimensionMismatch of Token * Dimensionality * Dimensionality // Different dimensions between decl/def
 
     | ArrayDimensionMismatch of Token * SymbolTable * SymbolType // Different dimensions between decl/def
     | ArrayDimensionNonPositive of Token * int * int // Declaration uses negative integer
-    | ArrayIndexNonInteger of Token * int * SymbolType // Indexed expr uses non-integer
+    | ArrayIndexNonInteger of Token * SymbolType // Indexed expr uses non-integer
     | ArrayIndexNonPositive // Indexed expr uses negative integer
 
     | FunctionWithoutReturn of Token
     | FunctionReturnTypeMismatch of Token * SymbolType * SymbolType
-    | FunctionParamTypeMismatch of Token * int * SymbolType * SymbolType
+    | FunctionParamTypeMismatch of Token * SymbolType * SymbolType
     | FunctionArityMismatch of Token * int * int
     | FunctionMainWithReturn of Token // ??
 
@@ -41,9 +41,9 @@ type SemanticError =
     | MultTypeMismatch of Token * SymbolType * SymbolType
     | RelTypeMismatch of Token * SymbolType * SymbolType
 
-    | AddTypeInvalid of Token * SymbolType * SymbolType
-    | MultTypeInvalid of Token * SymbolType * SymbolType
-    | RelTypeInvalid of Token * SymbolType * SymbolType
+    | AddTypeInvalid of Location * SymbolType option * SymbolType option
+    | MultTypeInvalid of Location * SymbolType option * SymbolType option //of Token * SymbolType * SymbolType
+    | RelTypeInvalid of Location * SymbolType option * SymbolType option //of Token * SymbolType * SymbolType
 
     | CircularInheritance of Token * string list
     | ShadowedMemberVariableInheritance of Token * string * string * string // Warning only
@@ -66,6 +66,10 @@ type SemanticError =
         "[" + x.level.PadLeft 7 + "][" + (Utils.unionCaseName x).PadRight 30 + "]["
         + (show token.location.line + ", " + show token.location.column).PadRight 8 + "]: "
 
+    member x.prefix(location: Location) =
+        "[" + x.level.PadLeft 7 + "][" + (Utils.unionCaseName x).PadRight 30 + "][" + (show location.line + ", " + show location.column).PadRight 8
+        + "]: "
+
     member inline x.show =
         match x with
         | MultiplyDeclaredLocalVariable (token, scopeName) -> x.prefix token + "multiple declared local variable `" + scopeName + "`"
@@ -78,9 +82,25 @@ type SemanticError =
         | UndeclaredMemberVariable (token, scopeName) -> x.prefix token + "undeclared member variable `" + scopeName + "`"
         | UndeclaredMemberFunction (token, scopeName) -> x.prefix token + "undeclared member function `" + scopeName + "`"
         | UndeclaredClass (defToken) -> x.prefix defToken + "undeclared class `" + show defToken.lexeme + "`"
+        | TypeAssignmentMismatch (token, lhsName, rhsName) ->
+            x.prefix token + "type assignment mismatch between `" + lhsName + "` and `" + rhsName + "`"
         | ArrayDimensionMismatch (defToken, declTable, defType) ->
             x.prefix defToken + "array used with wrong number of dimensions. `" + show (declTable.symbolType @! "") + "` is not compatible with `"
             + String.replaceWith [ "[0]" ] [ "[]" ] (show defType) + "`"
+        | ArrayIndexNonInteger (token, symbolType) -> x.prefix token + "array index invalid, expected integer but called with " + show symbolType
+        | FunctionArityMismatch (token, declNumber, callNumber) ->
+            x.prefix token + "function arity invalid, expected " + show declNumber + " but called with " + show callNumber + " parameter(s)"
+        | FunctionParamTypeMismatch (token, declType, callType) ->
+            x.prefix token + "function parameter type mismatch between declared type `" + show declType + "` and called type `" + show callType + "`"
+        | AddTypeInvalid (location, lhsType, rhsType) ->
+            x.prefix location + "addition operation type invalid involving class types between `" + (lhsType.map show @? "<unresolved type>")
+            + "` and `" + (rhsType.map show @? "<unresolved type>") + "`"
+        | MultTypeInvalid (location, lhsType, rhsType) ->
+            x.prefix location + "multiplication operation type invalid involving class types between `" + (lhsType.map show @? "<unresolved type>")
+            + "` and `" + (rhsType.map show @? "<unresolved type>") + "`"
+        | RelTypeInvalid (location, lhsType, rhsType) ->
+            x.prefix location + "relational operation type invalid involving class types between `" + (lhsType.map show @? "<unresolved type>")
+            + "` and `" + (rhsType.map show @? "<unresolved type>") + "`"
         | _ -> Utils.unionCaseName x
 
 [<RequireQualifiedAccess>]
@@ -108,7 +128,7 @@ module Semanter =
                 let arithExpr = List.tryItem 0 tree.children
                 let term = List.tryItem 1 tree.children
 
-                match arithExpr.map (fun e -> visitor e), term.map (fun e -> visitor e) with
+                match arithExpr.map visitor, term.map visitor with
                 | Some (lerrors, lhs), Some (rerrors, rhs) ->
                     let errors = lerrors @ rerrors
 
@@ -118,15 +138,15 @@ module Semanter =
                         | Some (Integer lhsDims), Some (Float rhsDims)
                         | Some (Float lhsDims), Some (Integer rhsDims)
                         | Some (Float lhsDims), Some (Float rhsDims) ->
-                            match List.length lhsDims, List.length rhsDims with
-                            | 0, 0 ->
+                            match lhs.root.symbolType.Value.dimensionality, rhs.root.symbolType.Value.dimensionality with
+                            | Scalar, Scalar ->
                                 errors
                             | _ ->
                                 SemanticError.AddTypeMismatch(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
                         | Some (SymbolType.Class (className, _)), _
                         | _, Some (SymbolType.Class (className, _)) ->
-                            SemanticError.AddTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
-                        | _ -> SemanticError.AddTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                            AddTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
+                        | _ -> AddTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
 
                     // Need to return new tree with child trees with updated symbol entry
                     errors,
@@ -152,16 +172,16 @@ module Semanter =
                         | Some (Integer lhsDims), Some (Float rhsDims)
                         | Some (Float lhsDims), Some (Integer rhsDims)
                         | Some (Float lhsDims), Some (Float rhsDims) ->
-                            match List.length lhsDims, List.length rhsDims with
-                            | 0, 0 ->
+                            match lhs.root.symbolType.Value.dimensionality, rhs.root.symbolType.Value.dimensionality with
+                            | Scalar, Scalar ->
                                 errors
                             | _ ->
                                 SemanticError.MultTypeMismatch(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
                         | Some (SymbolType.Class (className, _)), _
                         | _, Some (SymbolType.Class (className, _)) ->
-                            SemanticError.MultTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                            MultTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
                         | _ ->
-                            SemanticError.MultTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                            MultTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
 
                     // Need to return new tree with child trees with updated symbol entry
                     errors,
@@ -206,8 +226,8 @@ module Semanter =
                         | Some (Integer lhsDims), Some (Float rhsDims)
                         | Some (Float lhsDims), Some (Integer rhsDims)
                         | Some (Float lhsDims), Some (Float rhsDims) ->
-                            match List.length lhsDims, List.length rhsDims with
-                            | 0, 0 ->
+                            match lhs.root.symbolType.Value.dimensionality, rhs.root.symbolType.Value.dimensionality with
+                            | Scalar, Scalar ->
                                 errors
                             | x, y when x <> y ->
                                 SemanticError.RelTypeMismatch(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
@@ -218,8 +238,8 @@ module Semanter =
 
                         | Some (SymbolType.Class (className, _)), _
                         | _, Some (SymbolType.Class (className, _)) ->
-                            SemanticError.RelTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
-                        | _ -> SemanticError.RelTypeInvalid(tree.root.syntaxToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                            SemanticError.RelTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
+                        | _ -> SemanticError.RelTypeInvalid((Ast.firstToken tree).location, lhs.root.symbolType, rhs.root.symbolType) :: errors
 
 
                     // Need to return new tree with child trees with updated symbol entry
@@ -255,32 +275,48 @@ module Semanter =
                         |> List.tryLast // Take the closest ancestor
 
                     match idEntryFromLocalScopeMaybe, idEntryFromClassScopeMaybe, idEntryFromSuperScopeMaybe, indexListTree.children with
-                    | Some idEntry, _, _, []
                     | None, Some idEntry, _, []
-                    | None, None, Some idEntry, [] ->
-                        [], tree <<<< { tree.root with symbolEntry = Some idEntry }
-                    | Some idEntry, _, _, indexTrees
+                    | None, None, Some idEntry, []
+                    | Some idEntry, _, _, [] -> [], tree <<<< { tree.root with symbolEntry = Some idEntry }
                     | None, Some idEntry, _, indexTrees
-                    | None, None, Some idEntry, indexTrees ->
+                    | None, None, Some idEntry, indexTrees
+                    | Some idEntry, _, _, indexTrees ->
                         let errorsAndTreePairs = List.map visitor indexTrees
-                        let trees = List.map snd errorsAndTreePairs
+                        let indexTrees = List.map snd errorsAndTreePairs
                         let errors = List.flatMap fst errorsAndTreePairs
                         let idDeclType = idEntry.symbolType @! "SymbolTableVisitor.visit.dataMember: `idEntry.symbolType` is None"
-                        let idDefType = SymbolType.make idDeclType.fakeToken (Some(List.map (fun _ -> 0) indexTrees))
+                        let dimensionality = List.length indexTrees
+                        let idDefType = SymbolType.make (idDeclType, dimensionality)
 
-                        if idDefType.dimensionality <> idDeclType.dimensionality
-                        then ArrayDimensionMismatch(Ast.firstToken idTree, idEntry, idDefType) :: errors, tree
-                        else errors, tree <<<< { tree.root with symbolEntry = Some idEntry.withNoDimensionality }
+                        // Check for same dimensionality
+                        if idDefType.dimensionality <> idDeclType.dimensionality then
+                            ArrayDimensionMismatch(Ast.firstToken idTree, idEntry, idDefType) :: errors, tree
+                        else
+                            // Check for integer valued indexing
+                            let nonIntegerFolder state (item: Tree<SymbolElement>) =
+                                match item.root.symbolType with
+                                | Some symbolType ->
+                                    match symbolType, symbolType.dimensionality with
+                                    | Integer _, Scalar -> state
+                                    | _ -> ArrayIndexNonInteger(Ast.firstToken item, symbolType) :: state
+                                | None -> state
+
+                            let nonIntegerErrors = List.fold nonIntegerFolder [] indexTrees
+
+                            // Return symbolEntry without dimensionality since we used proper indexing to get non-array type
+                            nonIntegerErrors @ errors,
+                            Tree.create { tree.root with symbolEntry = Some idEntry.withNoDimensionality } (idTree :: indexTrees)
                     | None, None, None, _ ->
                         // Assume they are local variables until they get to `varElementList`
                         UndeclaredLocalVariable(idTree.root.syntaxToken, idTree.root.syntaxToken.lexeme) :: [], tree
                 | _ -> [], tree
 
-            and varElementList (tree: Tree<SymbolElement>) =
+            and varElementList (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
                 // Single( ManyOf [ DataMember; FunctionCall ] )
                 let undefinedLocalMapper (error: SemanticError) =
                     match error with
-                    | UndeclaredLocalVariable (token, scopeName) -> UndeclaredMemberVariable(token, scopeName)
+                    | UndeclaredLocalVariable (token, scopeName) ->
+                        UndeclaredMemberVariable(token, scopeName)
                     | _ -> error
 
                 let errorAndTreePairsMapper (idx: int, (errors: SemanticError list, tree: Tree<SymbolElement>)) =
@@ -288,13 +324,58 @@ module Semanter =
                     | 0, [], _ -> []
                     | _, xs, _ -> List.map undefinedLocalMapper xs
 
-                let errorsAndTreePairs = List.map (visitor) tree.children
+                let errorsAndTreePairs = List.map visitor tree.children
                 let trees = List.map snd errorsAndTreePairs
 
                 let errors =
                     match errorsAndTreePairs with
                     | errorsAndTreePair :: [] -> fst errorsAndTreePair
                     | _ -> List.flatMap errorAndTreePairsMapper (List.indexed errorsAndTreePairs)
+
+                let mutable errors = []
+
+                for (i, errorAndTreePair) in List.indexed errorsAndTreePairs do
+                    match i with
+                    | 0 ->
+                        match List.tryItem 0 trees.[i].children with
+                        | None -> errors <- (fst errorAndTreePair) @ errors
+                        | Some idNode ->
+//                            let localTable, classTable, superTables = table.tryFindTables
+//                            let freeTable = table.tryFindTableWithNameAndKind idNode.root.syntaxToken.lexeme SymbolKindType.FreeFunction
+                            errors <- (fst errorAndTreePair) @ errors
+                            ()
+                    | _ ->
+                        let classInstance = trees.[i - 1]
+                        let classTable = table.tryFindTableWithNameAndKind (classInstance.root.symbolType.map(fun e -> e.className) @? "") SymbolKindType.Class
+                        match classTable with
+                        | None -> ()
+                        | Some classTable ->
+                            let idToFind = trees.[i].children.[0].root.syntaxToken.lexeme
+                            let symbolKindTypeToFind = match trees.[i].root.syntaxElement.syntaxKind with
+                                                        | FunctionCall -> SymbolKindType.MemberFunction
+                                                        | _ -> SymbolKindType.Variable
+
+                            let idFinder state (item: SymbolTable) =
+                                match item.name.lexeme = idToFind && item.kind.symbolKindType = symbolKindTypeToFind with
+                                | true -> true
+                                | false ->
+                                    if state = true then true else false
+
+                            let idFound = List.fold idFinder false classTable.entries
+
+                            errors <- (fst errorAndTreePair) @ errors
+
+                            errors <- List.filter (fun e -> match e with | UndeclaredLocalVariable _ -> false | _ -> true) errors
+
+                            if idFound
+                            then ()
+                            else
+                                match symbolKindTypeToFind with
+                                | SymbolKindType.Variable -> errors <- UndeclaredMemberVariable(Ast.firstToken trees.[i], (Ast.firstToken trees.[i]).lexeme) :: errors
+                                | SymbolKindType.MemberFunction -> errors <- UndeclaredMemberFunction(Ast.firstToken trees.[i], (Ast.firstToken trees.[i]).lexeme) :: errors
+                                | SymbolKindType.FreeFunction -> errors <- UndefinedFreeFunction(Ast.firstToken trees.[i]) :: errors
+                                | _ -> ()
+
 
                 // If last child tree exists, replace the roots symbolEntry content with that child
                 match List.tryLast trees with
@@ -304,6 +385,8 @@ module Semanter =
             and assignStat (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
                 match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
                 | Some (lerrors, lhs), Some (rerrors, rhs) ->
+                    let a = lerrors
+                    let b = rerrors
                     let errors = rerrors @ lerrors
 
                     let errors =
@@ -311,19 +394,60 @@ module Semanter =
                         | Some (Integer ldims), Some (Integer rdims)
                         | Some (Float ldims), Some (Float rdims)
                         | Some (Float ldims), Some (Integer rdims) ->
-                            match List.length ldims, List.length rdims with
+                            match lhs.root.symbolType.Value.dimensionality, rhs.root.symbolType.Value.dimensionality with
                             | x, y when x = y ->
                                 errors
                             | x, y ->
                                 TypeDimensionMismatch(lhs.root.symbolType.Value.fakeToken, x, y) :: errors
                         | Some (SymbolType.Class (lname, ldims)), Some (SymbolType.Class (rname, rdims)) ->
-                            match List.length ldims, List.length rdims with
+                            match lhs.root.symbolType.Value.dimensionality, rhs.root.symbolType.Value.dimensionality with
                             | x, y when x = y && lname = rname -> errors
                             | x, y when x <> y -> TypeDimensionMismatch(lhs.root.symbolType.Value.fakeToken, x, y) :: errors
                             | _ ->
-                                TypeMismatch(lhs.root.symbolType.Value.fakeToken, lhs.root.symbolType.Value, rhs.root.symbolType.Value) :: errors
+                                // TODO check for common class ancestors
+                                TypeAssignmentMismatch(lhs.root.symbolType.Value.fakeToken, lname, rname) :: errors
                         | _ -> errors
                     errors, Tree.create tree.root [ lhs; rhs ]
+                | _ -> [], tree
+
+            and functionCall (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
+                | Some (idErrors, idNode), Some (aParamListErrors, aParamList) ->
+                    let errors = idErrors @ aParamListErrors
+                    let freeFunctionTable = table.tryFindTableWithNameAndKind idNode.root.syntaxToken.lexeme SymbolKindType.FreeFunction
+                    let memberFunctionTable = table.tryFindTableWithNameAndKind idNode.root.syntaxToken.lexeme SymbolKindType.MemberFunction
+                    let functionTable = table.tryFindFunctionTable tree
+                    match freeFunctionTable, memberFunctionTable with
+                    | Some functionTable, _
+                    | _, Some functionTable ->
+                        // Lift return type and assign to type of this tree
+                        let newTree = Tree.create { tree.root with symbolEntry = Some functionTable } [ idNode; aParamList ]
+
+                        // Check for number of params called with
+                        match functionTable.numberOfParameters = List.length aParamList.children with
+                        | false ->
+                            SemanticError.FunctionArityMismatch
+                                (Ast.firstToken tree, functionTable.numberOfParameters, List.length aParamList.children) :: errors, newTree
+                        | true ->
+                            // Check for correct param types used
+                            let callParamTypes =
+                                (List.map (fun (e: Tree<SymbolElement>) -> e.root.symbolType) aParamList.children) |> List.choose id
+                            let declParamTypes = functionTable.paramTypes
+
+                            let wrongParamTypeFolder state (item: SymbolType * SymbolType) =
+                                let declParamType = fst item
+                                let callParamType = snd item
+                                match declParamType.dimensionality = callParamType.dimensionality with
+                                | true -> state
+                                | false -> FunctionParamTypeMismatch(Ast.firstToken tree, declParamType, callParamType) :: state
+                            match List.length declParamTypes = List.length callParamTypes with
+                            | false -> errors, newTree
+                            | true ->
+                                let declAndCallParamTypePairs =
+                                    List.map2 (fun declParamType callParamType -> declParamType, callParamType) declParamTypes callParamTypes
+                                let paramTypeErrors = List.fold wrongParamTypeFolder [] declAndCallParamTypePairs
+                                paramTypeErrors @ errors, newTree
+                    | _ -> errors, tree
                 | _ -> [], tree
 
             and other (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
@@ -344,6 +468,7 @@ module Semanter =
                    | DataMember -> dataMember
                    | VarElementList -> varElementList
                    | AssignStat -> assignStat
+                   | FunctionCall -> functionCall
                    | _ -> other
 
             visitor tree
@@ -370,7 +495,7 @@ module Semanter =
                         | SymbolType.Class (lhsClassName, _), SymbolType.Class (rhsClassName, _) -> lhsClassName <> rhsClassName
                         | _ -> true
                     if isTypeMismatched
-                    then TypeMismatch(Ast.firstToken tree, lhsType, rhsType) :: []
+                    then TypeAssignmentMismatch(Ast.firstToken tree, show lhsType, show rhsType) :: []
                     else []
             | _, _ -> []
 
@@ -583,11 +708,11 @@ module Semanter =
             | Parameter symbolType ->
                 match symbolType with
                 | Integer dimList ->
-                    MemoryElement.sizeOf 4 dimList
+                    MemoryElement.sizeOf 4 (dimList @? [])
                 | Float dimList ->
-                    MemoryElement.sizeOf 8 dimList
+                    MemoryElement.sizeOf 8 (dimList @? [])
                 | SymbolType.Class (className, dimList) ->
-                    MemoryElement.sizeOf 20 dimList
+                    MemoryElement.sizeOf 20 (dimList @? [])
                 | Void
                 | SymbolType.Nil ->
                     0
@@ -873,4 +998,4 @@ module Semanter =
         SymbolTable.makeSymbolTableAndTree syntaxTree
         ||> SymbolTableVisitor.visit
         ||> (fun errors tree -> errors @ TypeCheckVisitor.visit tree, tree)
-        ||> (fun errors tree -> errors @ SymbolCheckVisitor.visit (tree.root.symbolEntry @! "Semanter.check: `tree.root.symbolEntry` is None"), tree)
+        ||> (fun errors tree -> SymbolCheckVisitor.visit (tree.root.symbolEntry @? SymbolTable.empty) @ errors, tree)

@@ -1,0 +1,20 @@
+printArray(integer arr[], integer size) : void
+  local
+    integer n;
+    integer i;
+  do
+    n = size;
+    i = 0;
+    while (i<n)
+      do
+        write(arr[i]); // test with write(arr[i]);
+        i = i+1;
+      end;
+  end
+
+main
+  local
+    integer arr[7];
+  do
+    printArray(arr);
+  end

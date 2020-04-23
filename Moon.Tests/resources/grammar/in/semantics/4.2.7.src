@@ -1,0 +1,19 @@
+class A {
+  public integer var1;
+  public integer var2;
+}
+
+main
+  local
+    A a;
+    integer i;
+    integer var1;
+    integer var4;
+  do
+    i = var1;
+    i = var5;
+    i = a.var1;
+    i = a.var2;
+    i = a.var3;
+    i = a.var4;
+  end

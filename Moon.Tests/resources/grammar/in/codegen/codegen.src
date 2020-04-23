@@ -1,0 +1,105 @@
+main
+  local
+    integer x;
+    integer y;
+    integer z;
+    integer a;
+    integer b;
+    integer zero;
+    integer one;
+  do
+    x = 35;
+    y = 3;
+    z = 2;
+    a = 4;
+    b = 5;
+    write(x + y);                      // 35+3          =38
+    write(x + y - z);                  // 35+3-2        =36
+    write(x + y - z / a);              // 35+3-2/4      =38-0=38
+    write(x / b);                      // 35/5          =7
+	write(x + y - z / a * b);          // 35+3-2/4*5    =38+0*5=38
+	write(z / a);                      // 2/4           =0.5=0
+	write(a / z);                      // 4/2           =2
+	write(x + y - ((z / a) * b));      // 35+3-2/4*5    =38-0*5=38
+	write((x + y * 49 - z) / (a * b)); // 35+3*49-2/4*5 =180/20=9
+
+    zero = 0;
+    one = 1;
+    x = -3;
+    y = 145;
+
+    write(x);                       // -3
+    write(y);                       // 145
+    write(-y);                      // -145
+
+    // AND
+    write(one and one);             // 1
+    write(zero and one);            // 0
+    write(one and zero);            // 0
+    write(zero and zero);           // 0
+    write(x and y);                 // 1
+    write(y and x);                 // 1
+    write(x and x);                 // 1
+    write(y and y);                 // 1
+    write(zero and y);              // 0
+    write(y and zero);              // 0
+    write(zero and x);              // 0
+    write(x and zero);              // 0
+
+    // OR
+    write(zero or one);             // 1
+    write(one or zero);             // 1
+    write(zero or zero);            // 0
+    write(one or one);              // 1
+    write(x or y);                  // 1
+    write(y or x);                  // 1
+    write(x or x);                  // 1
+    write(y or y);                  // 1
+    write(zero or y);               // 1
+    write(y or zero);               // 1
+    write(zero or x);               // 1
+    write(x or zero);               // 1
+
+    // NOT
+    write(not zero);                // 1
+    write(not one);                 // 0
+    write(not x);                   // 0
+    write(not y);                   // 0
+
+    // SIGN
+    write(-zero);                   // 0
+    write(-one);                    // -1
+    write(-x);                      // 3
+    write(-y);                      // -145
+
+    x = -3;
+    y = 145;
+    z = 7;
+
+    write(x == -3);         // 1
+    write(x == x);          // 1
+    write(x == y);          // 0
+
+    write(x <> -3);         // 0
+    write(x <> x);          // 0
+    write(x <> y);          // 1
+
+    write(x < -3);          // 0
+    write(x < x);           // 0
+    write(x < y);           // 1
+
+    write(x <= -3);         // 1
+    write(x <= x);          // 1
+    write(x <= y);          // 1
+
+    write(x > -3);          // 0
+    write(x > x);           // 0
+    write(x > y);           // 0
+
+    write(x >= -3);         // 1
+    write(x >= x);          // 1
+    write(x >= y);          // 0
+
+    write((x and y) >= (x - y)); // 1 (5.5.1)
+    x = (x and y) >= (x - y);    // 1 (5.3.1)
+  end

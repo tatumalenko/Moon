@@ -2,6 +2,8 @@
 # Created by https://www.gitignore.io/api/rider,fsharp,dotnetcore,visualstudio,visualstudiocode
 # Edit at https://www.gitignore.io/?templates=rider,fsharp,dotnetcore,visualstudio,visualstudiocode
 
+/Moon/output
+
 ### DotnetCore ###
 # .NET Core build folders
 /bin

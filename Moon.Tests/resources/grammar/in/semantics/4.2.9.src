@@ -1,0 +1,20 @@
+class A {
+  public integer var1;
+  public integer var2;
+}
+
+A::undecl() : integer
+  do
+    return (1);
+  end
+
+main
+  local
+    A a;
+    integer i;
+    integer var1;
+    integer var4;
+  do
+    i = undecl();
+    i = a.undecl();
+  end

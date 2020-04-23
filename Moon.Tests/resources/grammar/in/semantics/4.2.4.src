@@ -1,0 +1,11 @@
+main
+  local
+    integer i;
+    integer arr1d[7];
+    integer arr2d[7][7];
+  do
+    i = arr1d[1];
+    i = arr1d[1][1];
+    i = arr2d[1];
+    i = arr2d[1][1];
+  end

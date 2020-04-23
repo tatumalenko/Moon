@@ -50,6 +50,18 @@ module Path =
     let makePath (path: string) =
         Path.Combine(__SOURCE_DIRECTORY__, path)
 
+let makeRelativePath (path: string) =
+    Path.Combine(__SOURCE_DIRECTORY__, path)
+
+let makePath (path: string) =
+    Path.Combine(path)
+
+let fileName (path: string) =
+    Path.GetFileName path
+
+let directoryName (path: string) =
+    System.IO.Path.GetDirectoryName(path)
+
 [<RequireQualifiedAccess>]
 module CommandLineRunner =
     let run (workingDirectory: string) (executablePath: string) (args: string) =
@@ -70,10 +82,10 @@ module CommandLineRunner =
                 ex.Data.Add("filename", executablePath)
                 reraise ()
         if not started then failwithf "Failed to start process %s" executablePath
-        printfn "Started %s with pid %i" p.ProcessName p.Id
+        //printfn "Started %s with pid %i" p.ProcessName p.Id
         p.BeginOutputReadLine()
         p.BeginErrorReadLine()
         p.WaitForExit()
-        printfn "Finished %s" executablePath
+        //printfn "Finished %s" executablePath
         let cleanOut l = l |> Seq.filter (fun o -> String.IsNullOrEmpty o |> not)
         cleanOut outputs, cleanOut errors

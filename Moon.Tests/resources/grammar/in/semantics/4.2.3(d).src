@@ -1,0 +1,30 @@
+class A {
+  public sum(integer arr[], integer size) : integer;
+}
+
+A::sum(integer arr[], integer size) : integer
+  local
+    integer sum;
+    integer n;
+    integer i;
+  do
+    sum = 0;
+    n = size;
+    i = 0;
+    while (i<n)
+      do
+        sum = sum + arr[i];
+        i = i + 1;
+      end;
+
+    return (sum);
+  end
+
+main
+  local
+    A a1;
+    integer s;
+    integer arr[7];
+  do
+    s = a1.sum(arr);
+  end

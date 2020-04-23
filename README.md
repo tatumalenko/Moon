@@ -27,42 +27,18 @@ You will find the assignment document located in `doc/a4/a4_40055122.pdf`.
 
 # Install
 
-**Requirements:** Depending on the approach used to execute the program, either the .NET Core 3.1.1 SDK or Docker is required to run the program. The following sections outline how to use either approaches.
+**Requirements:** Depending on the approach used to execute the program, the .NET Core 3.1.1 SDK is required to run the program. The following sections outline how to use run the compiler.
 
 # Use
 
 ## Run
 
-There are two ways to run the command line program.
-
-### 1. Using Docker (Recommended):
-
 ```sh
-$ docker run --rm tatumalenko/moon lex --text "$(cat ~/Desktop/input.src)"
+$ cd /Path/to/root/directory/Moon
+$ dotnet run --path "/path/to/input.src" --outdir "/path/to/some/outDir"
 ```
 
-OR by using the Make rule:
-
-```sh
-$ make dockerrun path="~/Desktop/input.src"
-```
-
-This will pull the latest image hosted on [Docker Hub](https://hub.docker.com/r/tatumalenko/moon/tags) and immediately run it using the contents of the file from the path supplied. This is the easiest way to get the program running without needing to install any platform specific SDKs and whatnot. The only caveat with this usage is because Docker uses virtualized containers, generating files into the host's filesystem is quite tricky and instead I sought to simply log the resulting outputs for both `.outlextokens` and `.outlexerrors` to the console.
-
-### 2. Using `dotnet core` SDK:
-
-```sh
-$ cd Moon
-$ dotnet run -- lex --path "~/Desktop/input.src" --outdir "~/Desktop"
-```
-
-OR by using the Make rule:
-
-```sh
-$ make run path="~/Desktop/input.src" outdir="~/Desktop"
-```
-
-This will output `input.outlextokens` and `input.outlexerrors` files into the `~/Desktop` directory. This unfortunately to install the `dotnet core 3.1.1` SDK and associated dependencies, which may be a hassle. For this reason, approach #1 is the recommended one.
+The relevant files will be written to the directory supplied by the `outdir` argument.
 
 ## Test
 
@@ -70,10 +46,4 @@ The unit tests can only be executed by using the source code and `dotnet core` S
 
 ```sh
 $ dotnet test
-```
-
-OR by using the Make rule:
-
-```sh
-$ make test
 ```

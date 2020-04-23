@@ -1,0 +1,13 @@
+class A {
+}
+
+main
+  local
+    A a;
+  do
+    a = a + 1;
+    a = a * 1;
+    a = a or 1;
+    a = a and 1;
+    a = a > 1;
+  end

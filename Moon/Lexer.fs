@@ -550,6 +550,15 @@ module Lexer =
 
         List.filter sanitizeTokenFilter tokens
 
+    let validTokens tokens =
+        tokens
+        |> List.filter (fun token -> token.tokenType.isValid)
+        |> sanitizeTokens
+
+    let invalidTokens tokens =
+        tokens
+        |> List.filter (fun token -> token.tokenType.isInvalid)
+
     let drawTokens (tokens: Token list) =
         tokens
         |> List.map (fun token -> show token)
@@ -558,19 +567,19 @@ module Lexer =
     let drawValidTokens (tokens: Token list) =
         tokens
         |> List.filter (fun token -> token.tokenType.isValid)
-        |> List.map (fun token -> show token)
+        |> List.map show
         |> String.concat "\n"
 
     let drawInvalidTokens (tokens: Token list) =
         tokens
         |> List.filter (fun token -> token.tokenType.isInvalid)
-        |> List.map (fun token -> show token)
+        |> List.map show
         |> String.concat "\n"
 
     let drawSanitizedTokens (tokens: Token list) =
         tokens
         |> sanitizeTokens
-        |> List.map (fun token -> show token)
+        |> List.map show
         |> String.concat "\n"
 
     let display (tokens: Token list): string =

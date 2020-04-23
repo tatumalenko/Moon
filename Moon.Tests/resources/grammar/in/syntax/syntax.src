@@ -1,0 +1,157 @@
+class POLYNOMIAL {                                               // 3.1.5: class declarations
+    public integer arr[];
+
+	public evaluate(float x) : float;
+}
+
+class A {}
+
+class B {}
+
+class C inherits A, B {}                                         // 3.1.5: class declarations
+
+class LINEAR inherits POLYNOMIAL {                               // 3.1.5: class declarations
+	private float a;                                             // 3.1.1: variable declarations
+	private float b;                                             // 3.1.1: variable declarations
+	private integer c[][];                                       // 3.1.1: variable declarations
+	private POLYNOMIAL d[];                                      // 3.1.1: variable declarations
+
+	public build(float A, float B) : LINEAR;
+	public evaluate(float x) : float;
+}
+
+class QUADRATIC inherits POLYNOMIAL {
+	private float a;
+	private float b;
+	private float c;
+
+	public build(float A, float B, float C) : QUADRATIC;
+	public evaluate(float x) : float;
+}
+
+POLYNOMIAL::evaluate(float x) : float                            // 3.1.4: member function definitions
+  do
+    return (0);
+  end
+
+LINEAR::evaluate(float x) : float                                // 3.1.4: member function definitions
+  local
+    float result;
+  do
+    result = 0.0;
+    result = a * x + b;
+    return (result);
+  end
+
+QUADRATIC::evaluate(float x) : float                             // 3.1.4: member function definitions
+  local
+    float result;
+  do    //Using Horner's method
+    result = a;
+    result = result * x + b;
+    result = result * x + c;
+    return (result);
+  end
+
+LINEAR::build(float A, float B) : LINEAR                         // 3.1.4: member function definitions
+  local
+    LINEAR new_function;
+  do
+    new_function.a = A;
+    new_function.b = B;
+    return (new_function);
+  end
+
+QUADRATIC::build(float A, float B, float C) : QUADRATIC          // 3.1.4: member function definitions
+  local
+    QUADRATIC new_function;
+  do
+    new_function.a = A;
+    new_function.b = B;
+    new_function.c = C;
+    return (new_function);
+  end
+
+sum(integer arr[], integer size) : integer                       // 3.1.3: free functions
+  local
+    integer sum;
+    integer n;
+    integer i;
+  do
+    sum = 0;
+    n = size;
+    i = 0;
+    while (i<n)
+      do
+        sum = sum + arr[i];
+        i = i + 1;
+      end;
+
+    return (sum + 1);                                            // 3.1.9: return(expr)
+  end
+
+bubbleSort(integer arr[], integer size) : void
+  local
+    integer n;
+    integer i;
+    integer j;
+    integer temp;
+  do
+    n = size;
+    i = 0;
+    j = 0;
+    temp = 0;
+    while (i < n-1)
+      do
+        while (j < n-i-1)                                        // 3.1.8: loop statement (nested while)
+          do
+            if (arr[j] > arr[j+1])
+              then
+                do
+                  if (temp > arr[j]) then                        // 3.1.7: conditional statement (nested if)
+                    do
+                      temp = arr[j];
+                    end
+                  else;
+
+                  // swap temp and arr[i]
+                  temp = arr[j];
+                  arr[j] = arr[j+1];
+                  arr[j+1] = temp;
+                end
+              else
+	        ;
+            j = j+1;
+          end;
+        i = i+1;
+      end;
+  end
+
+main                                                             // 3.1.2: main function
+  local
+    LINEAR f1;
+    QUADRATIC f2;
+    integer i;
+    integer counter;
+    integer input;
+    integer complex;
+  do
+    f1 = f1.build(2, 3.5);
+    f2 = f2.build(-2.0, 1.0, 0.0);
+    counter = 1;
+
+    read(input);                                                 // 3.1.9: read(var)
+
+    complex = (1 * (3 or 1)) >= (((834.4 + 345.12) - 2) and i);  // 3.1.6: complex expression
+
+    i = f1.d.evaluate();                                         // 3.1.10: access to class members (nested function)
+    i = f1.d.arr[4];                                             // 3.1.10: access to class members (nested array)
+    i = arr2d[(arr1d[0] + 1 * 2)][(arr1d[0] + 345 or 2)];        // 3.1.11: access to arrays (multi-dimensional using expression indexing)
+
+    while(counter <= 10)
+      do
+        write(counter);                                          // 3.1.9: write(var)
+        write(f1.evaluate(counter));                             // 3.1.9: write(expr)
+        write(f2.evaluate(counter));
+      end;
+  end

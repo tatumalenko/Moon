@@ -1,20 +1,25 @@
 namespace Moon
 
 open System.Collections.Generic
+open System.Reflection.Metadata
+
+type Dimensionality =
+    | Scalar
+    | Array of int
 
 [<StructuredFormatDisplay("{show}")>]
 type SymbolType =
-    | Integer of int list
-    | Float of int list
-    | Class of string * int list
+    | Integer of int list option
+    | Float of int list option
+    | Class of string * int list option
     | Void
     | Nil
 
     member x.withoutDimensionality =
         match x with
-        | Integer _ -> Integer []
-        | Float _ -> Float []
-        | Class(className, _) -> Class(className, [])
+        | Integer _ -> Integer None
+        | Float _ -> Float None
+        | Class (className, _) -> Class(className, None)
         | Void
         | Nil -> failwith "SymbolType.dimensions: Tried to get dimensions of non-Integer, Float, or Class SymbolType"
 
@@ -22,44 +27,63 @@ type SymbolType =
         match x with
         | Integer dimensions
         | Float dimensions
-        | Class(_, dimensions) -> dimensions
+        | Class (_, dimensions) -> dimensions
         | Void
         | Nil -> failwith "SymbolType.dimensions: Tried to get dimensions of non-Integer, Float, or Class SymbolType"
 
     member x.className =
         match x with
-        | Class(className, _) -> className
+        | Class (className, _) -> className
         | Integer _
         | Float _
         | Void
-        | Nil -> failwith "SymbolType.className: Tried to get name of non-Class SymbolType DU"
+        | Nil -> "<unresolved>"
 
-    static member make (typeToken: Token) (dimensions: int list option) =
+    static member make(typeToken: Token, dimensions: int list option) =
         match typeToken.lexeme with
-        | "integer" -> (dimensions.map (fun xs -> Integer xs)) @! "SymbolType.make: `typeToken.lexeme` = 'integer' but `dimensions` given is None"
-        | "float" -> (dimensions.map (fun xs -> Float xs)) @! "SymbolType.make: `typeToken.lexeme` = 'float' but `dimensions` given is None"
-        | "void" -> Void
-        | Int _ -> Integer []
-        | Double _ -> Float []
-        | className ->
-            (dimensions.map (fun xs -> Class(className, xs)))
-            @! ("SymbolType.make: `typeToken.lexeme` = '" + className + "' but `dimensions` given is None")
-
-    static member create (typeName: string) (dimensions: int list) =
-        match typeName with
         | "integer" -> Integer dimensions
         | "float" -> Float dimensions
         | "void" -> Void
-        | Int _ -> Integer dimensions
-        | Double _ -> Float dimensions
+        | Int _ -> Integer None
+        | Double _ -> Float None
         | className -> Class(className, dimensions)
+
+    static member make(symbolType: SymbolType, dimensions: int list option) =
+        match symbolType with
+        | Integer _ -> Integer dimensions
+        | Float _ -> Float dimensions
+        | Class (className, _) -> Class(className, dimensions)
+        | Void -> Void
+        | Nil -> Nil
+
+    static member make(symbolType: SymbolType, dimensionality: int) =
+        match symbolType with
+        | Integer _ ->
+            Integer(if dimensionality > 0 then Some(List.replicate dimensionality -1) else None)
+        | Float _ ->
+            Float(if dimensionality > 0 then Some(List.replicate dimensionality -1) else None)
+        | Class (className, _) ->
+            Class
+                (className,
+                 (if dimensionality > 0 then Some(List.replicate dimensionality -1) else None))
+        | Void -> Void
+        | Nil -> Nil
+
+    static member create (typeName: string) (dimensions: int list) =
+        match typeName with
+        | "integer" -> Integer(Some dimensions)
+        | "float" -> Float(Some dimensions)
+        | "void" -> Void
+        | Int _ -> Integer None
+        | Double _ -> Float None
+        | className -> Class(className, Some dimensions)
 
     member x.fakeToken =
         let fakeLexeme =
             match x with
             | Integer _ -> "integer"
             | Float _ -> "float"
-            | Class(className, _) -> className
+            | Class (className, _) -> className
             | Void -> "void"
             | Nil -> ""
         { tokenType = TokenType.Id fakeLexeme
@@ -67,15 +91,27 @@ type SymbolType =
               { line = 0
                 column = 0 } }
 
-    member x.dimensionality = List.length x.dimensions
+    member x.dimensionality =
+        match x.dimensions with
+        | None -> Dimensionality.Scalar
+        | Some xs -> Dimensionality.Array(List.length xs)
 
     member inline x.show =
         match x with
-        | Integer dimensions -> "integer" + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
-        | Float dimensions -> "float" + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
-        | Class(className, dimensions) -> className + List.fold (fun s e -> s + "[" + show e + "]") "" dimensions
+        | Integer dimensions -> "integer" + (dimensions.map (fun dims -> List.fold (fun s e -> s + "[" + show e + "]") "" dims) @? "")
+        | Float dimensions -> "float" + (dimensions.map (fun dims -> List.fold (fun s e -> s + "[" + show e + "]") "" dims) @? "")
+        | Class (className, dimensions) -> className + (dimensions.map (fun dims -> List.fold (fun s e -> s + "[" + show e + "]") "" dims) @? "")
         | Void -> "void"
         | Nil -> ""
+
+type SymbolKindType =
+    | Variable
+    | Parameter
+    | FreeFunction
+    | MemberFunction
+    | Class
+    | ProgKind
+    | Nil
 
 [<StructuredFormatDisplay("{show}")>]
 type SymbolKind =
@@ -87,12 +123,22 @@ type SymbolKind =
     | ProgKind
     | Nil
 
+    member x.symbolKindType =
+        match x with
+        | Variable _ -> SymbolKindType.Variable
+        | Parameter _ -> SymbolKindType.Parameter
+        | FreeFunction _ -> SymbolKindType.FreeFunction
+        | MemberFunction _ -> SymbolKindType.MemberFunction
+        | Class _ -> SymbolKindType.Class
+        | ProgKind -> SymbolKindType.ProgKind
+        | Nil -> SymbolKindType.Nil
+
     member x.withNoDimensionality =
         match x with
         | Variable symbolType -> Variable symbolType.withoutDimensionality
         | Parameter symbolType -> Parameter symbolType.withoutDimensionality
-        | FreeFunction(symbolType, _) -> FreeFunction(symbolType.withoutDimensionality, [])
-        | MemberFunction(symbolType, _, superTypes) -> MemberFunction(symbolType.withoutDimensionality, [], superTypes)
+        | FreeFunction (symbolType, _) -> FreeFunction(symbolType.withoutDimensionality, [])
+        | MemberFunction (symbolType, _, superTypes) -> MemberFunction(symbolType.withoutDimensionality, [], superTypes)
         | Class _
         | ProgKind
         | Nil -> x
@@ -109,8 +155,8 @@ type SymbolKind =
 
     member x.returnType =
         match x with
-        | FreeFunction(symbolType, _) -> Some symbolType
-        | MemberFunction(symbolType, _, _) -> Some symbolType
+        | FreeFunction (symbolType, _) -> Some symbolType
+        | MemberFunction (symbolType, _, _) -> Some symbolType
         | Variable _
         | Parameter _
         | Class _
@@ -119,8 +165,8 @@ type SymbolKind =
 
     member x.paramTypes =
         match x with
-        | FreeFunction(_, symbolTypes) -> symbolTypes
-        | MemberFunction(_, symbolTypes, _) -> symbolTypes
+        | FreeFunction (_, symbolTypes) -> symbolTypes
+        | MemberFunction (_, symbolTypes, _) -> symbolTypes
         | Variable _
         | Parameter _
         | Class _
@@ -141,8 +187,8 @@ type SymbolKind =
         match x with
         | Variable symbolType -> show symbolType
         | Parameter symbolType -> show symbolType
-        | FreeFunction(returnType, paramTypes) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
-        | MemberFunction(returnType, paramTypes, _) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
+        | FreeFunction (returnType, paramTypes) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
+        | MemberFunction (returnType, paramTypes, _) -> "(" + String.concat ", " (List.map show paramTypes) + "): " + show returnType
         | Class superTypes ->
             if superTypes = []
             then ""
@@ -167,16 +213,16 @@ type SymbolTable =
         match x.kind with
         | Variable symbolType
         | Parameter symbolType -> Some symbolType
-        | FreeFunction(_, _) -> x.returnType
-        | MemberFunction(_, _, _) -> x.returnType
+        | FreeFunction (_, _) -> x.returnType
+        | MemberFunction (_, _, _) -> x.returnType
         | Class _ -> None
         | ProgKind -> None
         | Nil -> None
 
     member x.returnType =
         match x.kind with
-        | FreeFunction(symbolType, _) -> Some symbolType
-        | MemberFunction(symbolType, _, _) -> Some symbolType
+        | FreeFunction (symbolType, _) -> Some symbolType
+        | MemberFunction (symbolType, _, _) -> Some symbolType
         | Variable _
         | Parameter _
         | Class _
@@ -185,8 +231,8 @@ type SymbolTable =
 
     member x.paramTypes =
         match x.kind with
-        | FreeFunction(_, symbolTypes) -> symbolTypes
-        | MemberFunction(_, symbolTypes, _) -> symbolTypes
+        | FreeFunction (_, symbolTypes) -> symbolTypes
+        | MemberFunction (_, symbolTypes, _) -> symbolTypes
         | Variable _
         | Parameter _
         | Class _
@@ -208,7 +254,7 @@ type SymbolTable =
         | Variable _ -> x.name.lexeme
         | Parameter _ -> x.name.lexeme
         | FreeFunction _ -> "Function " + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
-        | MemberFunction(_, _, classType) ->
+        | MemberFunction (_, _, classType) ->
             "Function " + show classType + "." + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
         | Class _ -> x.name.lexeme
         | ProgKind
@@ -219,7 +265,7 @@ type SymbolTable =
         | Variable _ -> x.name.lexeme
         | Parameter _ -> x.name.lexeme
         | FreeFunction _ -> "Function " + x.name.lexeme + "(" + String.concat ", " (List.map show x.paramTypes) + ")"
-        | MemberFunction(_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + "(" + ")"
+        | MemberFunction (_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + "(" + ")"
         | Class _ -> x.name.lexeme
         | ProgKind
         | Nil -> failwith "Semanter.SymbolCheckVisitor.checkMultiplyDeclared: `ProgKind` or `Nil` type found"
@@ -228,8 +274,8 @@ type SymbolTable =
         match x.kind with
         | Variable _ -> "Variable " + x.name.lexeme + ": " + show x.kind
         | Parameter _ -> "Parameter " + x.name.lexeme + ": " + show x.kind
-        | FreeFunction(_, _) -> "Function " + x.name.lexeme + show x.kind
-        | MemberFunction(_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + show x.kind
+        | FreeFunction (_, _) -> "Function " + x.name.lexeme + show x.kind
+        | MemberFunction (_, _, classType) -> "Function " + show classType + "." + x.name.lexeme + show x.kind
         | Class _ -> "Class " + x.name.lexeme + show x.kind
         | ProgKind -> "Prog"
         | Nil -> x.name.lexeme
@@ -250,12 +296,22 @@ and [<StructuredFormatDisplay("{show}")>] SymbolElement =
 [<RequireQualifiedAccess>]
 module SymbolTable =
     let create name kind =
-        let token = { tokenType = TokenType.Id name; location = { line = 0; column = 0 } }
+        let token =
+            { tokenType = TokenType.Id name
+              location =
+                  { line = 0
+                    column = 0 } }
         { name = token
           kind = kind
           entries = []
-          tree = Tree.create { syntaxKind = SyntaxKind.Id; token = None } []
+          tree =
+              Tree.create
+                  { syntaxKind = SyntaxKind.Id
+                    token = None } []
           globalTree = None }
+
+    let empty =
+        create "" SymbolKind.Nil
 
     let rec findSymbolTables (localScope: SymbolTable option) treeToFind currentTree =
         let localScope =
@@ -286,16 +342,16 @@ module SymbolTable =
     let tryFind (predicate: _ -> bool) (symbolTable: SymbolTable) =
         let rec f (x: SymbolTable option): SymbolTable option =
             match x.map (fun it -> it.entries, predicate it) with
-            | Some(_, true) -> x
-            | Some(xs, false) -> List.tryHead (List.choose id (List.map (f << Some) xs))
+            | Some (_, true) -> x
+            | Some (xs, false) -> List.tryHead (List.choose id (List.map (f << Some) xs))
             | None -> None
         f (Some symbolTable)
 
     let filter (predicate: _ -> bool) (symbolTable: SymbolTable): SymbolTable list =
         let rec f (x: SymbolTable option): SymbolTable list =
             match x.map (fun it -> it.entries, predicate it) with
-            | Some(_, true) -> x.map (fun it -> [ it ]) @? []
-            | Some(xs, false) -> List.flatMap (f << Some) xs
+            | Some (_, true) -> x.map (fun it -> [ it ]) @? []
+            | Some (xs, false) -> List.flatMap (f << Some) xs
             | None -> []
         f (Some symbolTable)
 
@@ -310,7 +366,7 @@ module SymbolTable =
 
         let localScope = findSymbolTable tree symbolTable
         match localScope.map (fun it -> it.kind) with
-        | Some(SymbolKind.MemberFunction(returnType, paramTypes, classType)) ->
+        | Some (SymbolKind.MemberFunction (returnType, paramTypes, classType)) ->
             tryFind (finderPredicate classType.className) symbolTable
         | _ -> None
 
@@ -320,11 +376,14 @@ module SymbolTable =
     let tryFindTableWithName2 (name: string) (symbolTable: SymbolTable) =
         tryFind (fun st -> st.name.lexeme = name) symbolTable
 
+    let tryFindTableWithNameAndKind (name: string) (kindType: SymbolKindType) (symbolTable: SymbolTable) =
+        tryFind (fun st -> st.name.lexeme = name && st.kind.symbolKindType = kindType) symbolTable
+
     let tryFindClassTables (tree: Tree<SymbolElement>) (symbolTable: SymbolTable): SymbolTable list =
         let classSymbolTableMaybe = tryFindClassTable tree symbolTable
 
         match classSymbolTableMaybe.map (fun it -> it, it.kind) with
-        | Some(classSymbolTable, Class superTypes) ->
+        | Some (classSymbolTable, Class superTypes) ->
             let superClassTables = List.map (fun (it: SymbolType) -> tryFindTableWithName2 it.className symbolTable) superTypes |> List.choose id
             classSymbolTable :: superClassTables
         | _ -> []
@@ -350,8 +409,21 @@ module SymbolTable =
         match nodeMaybe with
         | Some node ->
             let syntaxNumNodes = node.children
-            List.map (int << nameFromSyntaxIdNode) syntaxNumNodes
-        | None -> []
+            let dimList = List.map (int << nameFromSyntaxIdNode) syntaxNumNodes
+            Some dimList
+        | None -> None
+
+    let intListFromSyntaxDimListNodes (nodes: Tree<SyntaxElement> list) =
+        match nodes with
+        | [] ->
+            None
+        | xs ->
+            let syntaxNumNodes = List.flatMap (fun e -> e.children) xs
+            match List.length syntaxNumNodes with
+            | 0 -> Some(List.replicate (List.length xs) -1)
+            | _ ->
+                let dimList = List.map (int << nameFromSyntaxIdNode) syntaxNumNodes
+                Some dimList
 
     let rec makeSymbolEntry (syntaxElementNode: Tree<SyntaxElement>): SymbolTable option * Tree<SymbolElement> =
         let syntaxElement = syntaxElementNode.root
@@ -370,12 +442,11 @@ module SymbolTable =
             let syntaxTypeNode = syntaxElementNode.children.[0]
             let syntaxIdNode = syntaxElementNode.children.[1]
             let syntaxDimListNodeMaybe = List.tryItem 2 syntaxElementNode.children
+            let syntaxDimListNodes = List.range 2 syntaxElementNode.children
 
             let symbolEntry =
                 { name = tokenFromSyntaxIdNode syntaxIdNode
-                  kind =
-                      Variable
-                          (SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode) (Some(intListFromSyntaxDimListNode syntaxDimListNodeMaybe)))
+                  kind = Variable(SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode, intListFromSyntaxDimListNodes syntaxDimListNodes))
                   entries = []
                   tree = syntaxElementNode
                   globalTree = None }
@@ -392,13 +463,11 @@ module SymbolTable =
         | FParam ->
             let syntaxTypeNode = syntaxElementNode.children.[0]
             let syntaxIdNode = syntaxElementNode.children.[1]
-            let syntaxDimListNodeMaybe = List.tryItem 2 syntaxElementNode.children
+            let syntaxDimListNodes = List.range 2 syntaxElementNode.children
 
             let symbolEntry =
                 { name = tokenFromSyntaxIdNode syntaxIdNode
-                  kind =
-                      Parameter
-                          (SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode) (Some(intListFromSyntaxDimListNode syntaxDimListNodeMaybe)))
+                  kind = Parameter(SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeNode, intListFromSyntaxDimListNodes syntaxDimListNodes))
                   entries = []
                   tree = syntaxElementNode
                   globalTree = None }
@@ -426,7 +495,7 @@ module SymbolTable =
 
             let symbolEntry =
                 { name = tokenFromSyntaxIdNode syntaxIdNode
-                  kind = FreeFunction(SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []), List.choose id paramFParamTypes)
+                  kind = FreeFunction(SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode, None), List.choose id paramFParamTypes)
                   entries = paramFParamEntries
                   tree = syntaxElementNode
                   globalTree = None }
@@ -447,9 +516,9 @@ module SymbolTable =
 
             let mapFuncDeclEntry entry =
                 match entry.kind with
-                | FreeFunction(returnType, paramTypes) ->
+                | FreeFunction (returnType, paramTypes) ->
                     { name = entry.name
-                      kind = MemberFunction(returnType, paramTypes, SymbolType.Class(nameFromSyntaxIdNode syntaxIdNode, []))
+                      kind = MemberFunction(returnType, paramTypes, SymbolType.Class(nameFromSyntaxIdNode syntaxIdNode, None))
                       entries = entry.entries
                       tree = syntaxElementNode
                       globalTree = None }
@@ -465,7 +534,7 @@ module SymbolTable =
                       Class
                           (tokensFromSyntaxInheritListNode syntaxInheritListNode
                            |> List.map (fun superTypeToken -> superTypeToken.lexeme)
-                           |> List.map (fun superTypeName -> SymbolType.Class(superTypeName, [])))
+                           |> List.map (fun superTypeName -> SymbolType.Class(superTypeName, None)))
                   entries =
                       symbolEntries
                       |> List.choose id
@@ -503,7 +572,7 @@ module SymbolTable =
                     { name = tokenFromSyntaxIdNode syntaxIdNode
                       kind =
                           FreeFunction
-                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []),
+                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode, None),
                                symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map (Option.get << fst))
                       entries = paramFParamEntries @ funcBodyEntries
                       tree = syntaxElementNode
@@ -523,9 +592,9 @@ module SymbolTable =
                     { name = tokenFromSyntaxIdNode syntaxIdNode
                       kind =
                           MemberFunction
-                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode) (Some []),
+                              (SymbolType.make (tokenFromSyntaxTypeNode syntaxReturnTypeNode, None),
                                symbolTypesFromSyntaxFParamListNode syntaxFParamListNode |> List.map (Option.get << fst),
-                               SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeOrEpsilonNode) (Some []))
+                               SymbolType.make (tokenFromSyntaxTypeNode syntaxTypeOrEpsilonNode, None))
                       entries = paramFParamEntries @ funcBodyEntries
                       tree = syntaxElementNode
                       globalTree = None }
@@ -543,7 +612,7 @@ module SymbolTable =
         | Num ->
             let symbolEntry =
                 { name = tokenFromSyntaxIdNode syntaxElementNode
-                  kind = Variable(SymbolType.make (tokenFromSyntaxTypeNode syntaxElementNode) (Some []))
+                  kind = Variable(SymbolType.make (tokenFromSyntaxTypeNode syntaxElementNode, None))
                   entries = []
                   tree = syntaxElementNode
                   globalTree = None }
@@ -658,7 +727,13 @@ module SymbolTable =
             let symbolTable = { symbolProgEntry with globalTree = Some symbolTree }
             let symbolEntry = { symbolTree.root with symbolEntry = Some symbolTable }
             symbolTable, Tree.create symbolEntry symbolTree.children
-        | _ -> failwith "ABORT: Tree tip root is not a Prog syntax element"
+        | _ ->
+            empty,
+            Tree.create
+                { syntaxElement =
+                      { syntaxKind = Prog
+                        token = None }
+                  symbolEntry = None } []
 
     let prefMid =
         seq {
@@ -713,6 +788,32 @@ type SymbolTable with
         let classTableMaybe = x.tryFindClassTable tree
         let classSuperTables = x.findClassTables tree
         localTableMaybe, classTableMaybe, classSuperTables
+
+    member x.tryFindTableWithNameAndKind name kind = SymbolTable.tryFindTableWithNameAndKind name kind x
+
+    member x.tryFindFunctionTable tree =
+        let localTable, classTable, superTables = x.tryFindTables tree
+
+        let freeFunctionTable =
+            match List.tryItem 0 tree.children with
+            | Some idNode ->
+                x.tryFindTableWithNameAndKind idNode.root.syntaxToken.lexeme SymbolKindType.FreeFunction
+            | _ -> None
+
+        match classTable, superTables, freeFunctionTable with
+        | Some classTable, _, _ -> Some classTable
+        | _, superTables, _ when not (List.isEmpty superTables) -> Some(List.last superTables)
+        | _, _, Some freeFunctionTable -> Some freeFunctionTable
+        | _ -> None
+
+    member x.numberOfParameters =
+        let countParameters state (item: SymbolTable) =
+            let adder =
+                match item.kind with
+                | Parameter _ -> 1
+                | _ -> 0
+            state + adder
+        List.fold countParameters 0 x.entries
 
 type SymbolTableComparer(comparer: SymbolTable -> SymbolTable -> bool, hasher: SymbolTable -> int) =
     member this.comparer = comparer
