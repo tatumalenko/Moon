@@ -236,7 +236,18 @@ module Syntax =
         let syntaxErrors = compilerOutput.syntaxErrors
         test <@ syntaxErrors = [] @>
 
-module SemanticAnalysis =
+    [<Fact>]
+    let syntax1 () =
+        let compilerOutput =
+            compile
+                { path = "syntax/syntax1.src"
+                  code = None
+                  line = None } "grammar.grm"
+
+        let syntaxErrors = compilerOutput.syntaxErrors
+        test <@ syntaxErrors = [] @>
+
+module Semantics =
     [<Fact>]
     let invalidOperatorsOnObjects () =
         // 4.2.2 operators not allowed on objects
@@ -513,6 +524,44 @@ module CodeGeneration =
         test <@ compilerOutput.semanticErrors = [] @>
         test <@ compilerOutput.moonCodeOutput = "1 1 0 0 0 1 0 0 1 1 1 1 0 0 0 1 1 0" @>
 
+    [<Fact>]
+    let conditional () =
+        let compilerOutput =
+            compile
+                { path = "codegen/conditional.src"
+                  code = None
+                  line = None } "grammar.grm"
+
+        let semanticErrors = compilerOutput.semanticErrors
+        let moonCodeOutput = compilerOutput.moonCodeOutput
+        test <@ semanticErrors = [] @>
+        test <@ moonCodeOutput = "5" @>
+
+    [<Fact>]
+    let loop () =
+        let compilerOutput =
+            compile
+                { path = "codegen/loop.src"
+                  code = None
+                  line = None } "grammar.grm"
+
+        let semanticErrors = compilerOutput.semanticErrors
+        let moonCodeOutput = compilerOutput.moonCodeOutput
+        test <@ semanticErrors = [] @>
+        test <@ moonCodeOutput = "10 9 8 7 6 5 4 3 2 1" @>
+
+    //[<Fact>]
+    let read () =
+        let compilerOutput =
+            compile
+                { path = "codegen/read.src"
+                  code = None
+                  line = None } "grammar.grm"
+
+        let semanticErrors = compilerOutput.semanticErrors
+        let moonCodeOutput = compilerOutput.moonCodeOutput
+        test <@ semanticErrors = [] @>
+        test <@ moonCodeOutput = "5" @>
 module Polynomial =
     [<Fact>]
     let ``Given polynomial source, then no semantic errors expected`` () =

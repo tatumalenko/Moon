@@ -22,6 +22,15 @@ type SyntaxError =
     | NotInTableButInFollow of Token * NonTerminal * bool
     | NotInTableNorInFollow of Token * NonTerminal * Location option
     | TokenAfterMain of Token
+
+    member x.uniqueId =
+        match x with
+        | WrongTerminal (token, _, _) -> token
+        | WrongVariable s -> { tokenType = TokenType.Id s; location = { line = 0; column = 0 } }
+        | NotInTableButInFollow (token, _, _) -> token
+        | NotInTableNorInFollow (token, _, _) -> token
+        | TokenAfterMain token -> token
+
     member x.show =
         let displayLocationMaybe (locationMaybe: Location option) =
             match locationMaybe with
@@ -232,6 +241,8 @@ type Parser =
         ast.index <- List.pop &semanticStack
 
         derivationTable <- derivationTable @ [ (derivation, None) ]
+
+        syntacticErrors <- List.distinctBy (fun (e: SyntaxError) -> e.uniqueId) syntacticErrors
 
         Ok(ast, derivationTable, syntacticErrors)
 

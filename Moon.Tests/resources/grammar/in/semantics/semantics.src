@@ -1,14 +1,15 @@
 class A {
   public integer x;
+  public integer y;
 
   public sum(integer arr[], integer size) : integer;
-  public randFloat() : float;
-  public randFloat2() : float; // 4.2.10: UndefinedMemberFunction
+  public randFloat() : float;                               // 4.2.10: UndefinedMemberFunction
+  public randFloat2() : float;                              // 4.2.10: UndefinedMemberFunction
   public randFloat3() : float;
 }
 
 class B inherits A {
-  public integer x; // 4.2.14: ShadowedMemberVariableInheritance
+  public integer x;                                         // 4.2.14: ShadowedMemberVariableInheritance
 }
 
 A::sum(integer arr[], integer size) : integer
@@ -29,19 +30,25 @@ A::sum(integer arr[], integer size) : integer
     return (sum);
   end
 
-A::randFloat() : float // 4.2.9: UndeclaredMemberFunction
+A::randFloat4() : float                                     // 4.2.9: UndeclaredMemberFunction
   do
     return (1.1);
   end
 
-A::randFloat3() : integer // 4.2.13: FunctionDeclarationDefinitionMismatch
+A::randFloat3() : integer                                   // 4.2.13: FunctionDeclarationMismatch
   do
     return (1);
   end
 
-C::undeclClassFoo() : float // 4.2.15: UndeclaredClass
+C::undeclClassFoo() : float                                 // 4.2.15: UndeclaredClass
   do
     return (1.1);
+  end
+
+returnTypeMismatch() : A
+  local
+  do
+    return (1);                                             // 4.2.12: FunctionReturnTypeMismatch
   end
 
 sum(integer arr[], integer size) : integer
@@ -62,7 +69,7 @@ sum(integer arr[], integer size) : integer
     return (sum);
   end
 
-missingReturn() : integer // 4.2.12: FunctionWithoutReturn
+missingReturn() : integer                                   // 4.2.12: FunctionWithoutReturn
   local
   do
   end
@@ -70,48 +77,78 @@ missingReturn() : integer // 4.2.12: FunctionWithoutReturn
 main
   local
     A a;
-    B b; // 4.2.11: UndeclaredClass
+    B b;
+    C c;                                                    // 4.2.11: UndeclaredClass
     integer i;
     float f;
     integer arr1d[7];
     integer arr2d[7][7];
     integer multiplyDeclaredVar;
-    integer multiplyDeclaredVar; // 4.2.18: MultiplyDeclaredLocalVariable
+    integer multiplyDeclaredVar;                            // 4.2.18: MultiplyDeclaredLocalVariable
   do
-    i = undeclVar; // 4.2.16: UndeclaredLocalVariable
-    i = a.undeclVar; // 4.2.17: UndeclaredMemberVariable
+    i = undeclVar;                                          // 4.2.16: UndeclaredLocalVariable
+    i = a.undeclVar;                                        // 4.2.17: UndeclaredMemberVariable
+    i = b.y;                                                // Ok inherited from A
 
     i = 3 + 3;
-    i = 3 + a; // 4.2.2: AddTypeInvalid
-    i = 3 * a; // 4.2.2: MultTypeInvalid
-    i = 3 or a; // 4.2.2: AddTypeInvalid
-    i = 3 and a; // 4.2.2: MultTypeInvalid
-    i = 3 > a; // 4.2.2: RelTypeInvalid
+    i = 3 + a;                                              // 4.2.2: AddTypeInvalid
+    i = 3 * a;                                              // 4.2.2: MultTypeInvalid
+    i = 3 or a;                                             // 4.2.2: AddTypeInvalid
+    i = 3 and a;                                            // 4.2.2: MultTypeInvalid
+    i = 3 > a;                                              // 4.2.2: RelTypeInvalid
 
-    i = a.sum(); // 4.2.3: FunctionArityMismatch
-    i = a.sum(arr1d); // 4.2.3: FunctionArityMismatch
+    i = a.sum();                                            // 4.2.3: FunctionArityMismatch
+    i = a.sum(arr1d);                                       // 4.2.3: FunctionArityMismatch
     i = a.sum(arr1d, 7);
-    i = a.undecl(); // 4.2.9: UndeclaredMemberFunction
-    i = a.sum(1.1, 1.1); // 4.2.3: FunctionParamTypeMismatch
-    f = arr1d.undecl; // 4.2.7: UndeclaredMemberVariable
+    i = a.undecl();                                         // 4.2.9: UndeclaredMemberFunction
+    i = a.sum(1.1, 1.1);                                    // 4.2.3: FunctionParamTypeMismatch
+    f = arr1d.undecl;                                       // 4.2.7: InvalidDotOperatorOnNonObject
 
     i = arr1d[1+3];
     i = arr1d[1 and 1];
     i = arr1d[1 or 1];
     i = arr1d[arr1d[0]];
     i = arr1d[a.sum(arr1d, 7)];
-    i = arr1d[1][1]; // 4.2.4: ArrayDimensionMismatch
-    i = arr1d[a.randFloat()]; // 4.2.5: ArrayIndexNonInteger
+    i = arr1d[1][1];                                        // 4.2.4: ArrayDimensionMismatch
+    i = arr1d[a.randFloat()];                               // 4.2.5: ArrayIndexNonInteger
 
     i = arr2d[1+3][1+3];
     i = arr2d[1 and 1][1 and 1];
     i = arr2d[1 or 1][1 or 1];
     i = arr2d[arr1d[0]][arr1d[0]];
     i = arr2d[a.sum(arr1d, 7)][a.sum(arr1d, 7)];
-    i = arr2d[1]; // 4.2.4: ArrayDimensionMismatch
-    i = arr2d[a.randFloat()][a.randFloat()]; // 4.2.5: ArrayIndexNonInteger
+    i = arr2d[1];                                           // 4.2.4: ArrayDimensionMismatch
+    i = arr2d[a.randFloat()][a.randFloat()];                // 4.2.5: ArrayIndexNonInteger
 
-    f = a.sum(arr1d, 7); // TypeAssignmentMismatch
+    f = a.sum(arr1d, 7);                                    // Ok (upcast)
+    a = a.sum(arr1d, 7);                                    // 4.2.1: TypeAssignmentMismatch
     f = a.randFloat();
-    f = a.randFloat2(); // UndefinedMemberFunction
   end
+
+// [ Error ][UndefinedMemberFunction       ][6, 10   ]: undefined member function `Function A.randFloat(): float`
+// [ Error ][UndefinedMemberFunction       ][7, 10   ]: undefined member function `Function A.randFloat2(): float`
+// [ Error ][UndeclaredMemberFunction      ][33, 4   ]: undeclared member function `randFloat4` in class `A`
+// [ Error ][FunctionDeclarationMismatch   ][38, 4   ]: function signature mismatch between declared function `Function A.randFloat3(): float` and defined function `Function A.randFloat3(): integer`
+// [ Error ][UndeclaredClass               ][43, 4   ]: undeclared class `C`
+// [ Error ][FunctionReturnTypeMismatch    ][51, 13  ]: function return type mismatch between declared type `A` and detected type `integer`
+// [ Error ][FunctionWithoutReturn         ][72, 1   ]: function return statement missing for missingReturn
+// [ Error ][UndeclaredClass               ][81, 5   ]: undeclared class `C`
+// [ Error ][MultiplyDeclaredLocalVariable ][87, 13  ]: multiple declared local variable `Variable multiplyDeclaredVar: integer`
+// [ Error ][UndeclaredLocalVariable       ][89, 9   ]: undeclared local variable `undeclVar`
+// [ Error ][UndeclaredMemberVariable      ][90, 11  ]: undeclared member variable `undeclVar` in class `A`
+// [ Error ][UndeclaredMemberVariable      ][91, 11  ]: undeclared member variable `y` in class `B`
+// [ Error ][AddTypeInvalid                ][94, 9   ]: addition operation type invalid involving class types between `integer` and `A`
+// [ Error ][MultTypeInvalid               ][95, 9   ]: multiplication operation type invalid involving class types between `integer` and `A`
+// [ Error ][AddTypeInvalid                ][96, 9   ]: addition operation type invalid involving class types between `integer` and `A`
+// [ Error ][MultTypeInvalid               ][97, 9   ]: multiplication operation type invalid involving class types between `integer` and `A`
+// [ Error ][RelTypeInvalid                ][98, 9   ]: relational operation type invalid involving class types between `integer` and `A`
+// [ Error ][FunctionArityMismatch         ][100, 11 ]: function arity invalid, expected 2 but called with 0 parameter(s)
+// [ Error ][FunctionArityMismatch         ][101, 11 ]: function arity invalid, expected 2 but called with 1 parameter(s)
+// [ Error ][UndeclaredMemberFunction      ][103, 11 ]: undeclared member function `undecl` in class `A`
+// [ Error ][FunctionParamTypeMismatch     ][104, 11 ]: function parameter type mismatch between declared type `integer[-1]` and called type `float`
+// [ Error ][ArrayDimensionMismatch        ][112, 9  ]: array used with wrong number of dimensions. `integer[7]` is not compatible with `integer[][]`
+// [ Error ][ArrayIndexNonInteger          ][113, 15 ]: array index invalid, expected integer but called with float
+// [ Error ][ArrayDimensionMismatch        ][120, 9  ]: array used with wrong number of dimensions. `integer[7][7]` is not compatible with `integer[]`
+// [ Error ][ArrayIndexNonInteger          ][121, 30 ]: array index invalid, expected integer but called with float
+// [ Error ][ArrayIndexNonInteger          ][121, 15 ]: array index invalid, expected integer but called with float
+// [ Error ][TypeAssignmentMismatch        ][124, 5  ]: type assignment mismatch between `A` and `integer`

@@ -1,0 +1,18 @@
+main
+  local
+    integer x;
+    integer y;
+  do
+    x = 2;
+    y = 3;
+
+    if (x > y) then
+      do
+        write(7);
+      end
+    else
+      do
+        write(5);
+      end
+    ;
+  end

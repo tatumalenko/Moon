@@ -15,6 +15,8 @@ type SymbolType =
     | Void
     | Nil
 
+    static member empty = Nil
+
     member x.withoutDimensionality =
         match x with
         | Integer _ -> Integer None
@@ -77,6 +79,15 @@ type SymbolType =
         | Int _ -> Integer None
         | Double _ -> Float None
         | className -> Class(className, Some dimensions)
+
+    static member create2 (typeName: string) =
+        match typeName with
+        | "integer" -> Integer None
+        | "float" -> Float None
+        | "void" -> Void
+        | Int _ -> Integer None
+        | Double _ -> Float None
+        | className -> Class(className, None)
 
     member x.fakeToken =
         let fakeLexeme =
@@ -182,6 +193,11 @@ type SymbolKind =
         | Parameter _
         | ProgKind
         | Nil -> failwith "SymbolTable.returnType: Tried to access superTypes of non-Class SymbolKind"
+
+    member x.className =
+        match x with
+        | MemberFunction (_, _, classType) -> classType.className
+        | _ -> ""
 
     member inline x.show =
         match x with
@@ -777,7 +793,9 @@ type SymbolTable with
 
     member x.tryFindClassTable symbolTree = SymbolTable.tryFindClassTable symbolTree x
 
-    member x.tryFindTableWithName token = SymbolTable.tryFindTableWithName token x
+    member x.tryFindTableWithName (token: Token) = SymbolTable.tryFindTableWithName token x
+
+    member x.tryFindTableWithName (lexeme: string) = SymbolTable.tryFindTableWithName2 lexeme x
 
     member x.findClassTables symbolTree = SymbolTable.tryFindClassTables symbolTree x
 
@@ -814,6 +832,15 @@ type SymbolTable with
                 | _ -> 0
             state + adder
         List.fold countParameters 0 x.entries
+
+    member x.classTables =
+        List.fold (fun state item -> match item.kind with | SymbolKind.Class _ -> item :: state | _ -> state) [] x.entries
+
+    member x.freeFunctionTables =
+        List.fold (fun state item -> match item.kind with | SymbolKind.FreeFunction _ -> item :: state | _ -> state) [] x.entries
+
+    member x.memberFunctionTables =
+        List.fold (fun state item -> match item.kind with | SymbolKind.MemberFunction _ -> item :: state | _ -> state) [] x.entries
 
 type SymbolTableComparer(comparer: SymbolTable -> SymbolTable -> bool, hasher: SymbolTable -> int) =
     member this.comparer = comparer

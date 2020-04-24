@@ -290,7 +290,11 @@ and [<StructuredFormatDisplay("{show}")>] TokenType =
         | Digit _
         | Fraction _
         | PartialFloat _
-        | Alphanum _ -> true
+        | Alphanum _
+        | PartialLineComment _
+        | PartialBlockComment _
+        | AsteriskSlash
+        | SlashAsterisk _ -> true
         | _ -> false
 
     member x.isInvalid =

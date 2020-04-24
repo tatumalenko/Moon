@@ -1,0 +1,27 @@
+class A {}
+
+function1() : integer
+  local
+  do
+    return(1);
+  end
+
+class A {}                    // Error 1: Class declaration after function definition started
+                              // Recover Error 1 by using `A` as id for first function token
+                              // Error 2: Sees `{` for next token which is wrong
+function2() : integer         // Recover Error 2 by skipping `class A {}` entirely
+  local
+    A a;
+  do
+    return(a);
+  end
+
+main
+  local
+    integer ac                // Error 3: Missing ;
+    A b;                      // Recover Error 3 using the following one, skips `A b`
+    integer a[1][;            // Error 4: Missing ]
+    integer b[2];             // Recovered Error 4 using the following one, skips `integer b[2]`
+  do
+    ac = f();
+  end                         // Recover program, AST properly generated

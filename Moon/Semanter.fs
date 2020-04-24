@@ -15,13 +15,13 @@ type SemanticError =
 
     | UndefinedFreeFunction of Token
     | UndefinedMemberVariable of Token * SymbolType
-    | UndefinedMemberFunction of Token * SymbolType
+    | UndefinedMemberFunction of Token * SymbolTable
 
     // Semantic check phase -- binding and type checking
     | UndeclaredLocalVariable of Token * string
     | UndeclaredMemberVariable of Token * string
     | UndeclaredMemberFunction of Token * string
-    | UndeclaredClass of Token
+    | UndeclaredClass of Token * string
 
     | TypeAssignmentMismatch of Token * string * string // Different types between lhs/rhs
     | TypeDimensionMismatch of Token * Dimensionality * Dimensionality // Different dimensions between decl/def
@@ -32,10 +32,11 @@ type SemanticError =
     | ArrayIndexNonPositive // Indexed expr uses negative integer
 
     | FunctionWithoutReturn of Token
-    | FunctionReturnTypeMismatch of Token * SymbolType * SymbolType
+    | FunctionReturnTypeMismatch of Token * string * string
     | FunctionParamTypeMismatch of Token * SymbolType * SymbolType
     | FunctionArityMismatch of Token * int * int
     | FunctionMainWithReturn of Token // ??
+    | FunctionDeclarationMismatch of Token * SymbolTable * SymbolTable
 
     | AddTypeMismatch of Token * SymbolType * SymbolType
     | MultTypeMismatch of Token * SymbolType * SymbolType
@@ -70,6 +71,13 @@ type SemanticError =
         "[" + x.level.PadLeft 7 + "][" + (Utils.unionCaseName x).PadRight 30 + "][" + (show location.line + ", " + show location.column).PadRight 8
         + "]: "
 
+    member x.lineNumber =
+        let str = show x
+        let split = String.split [ "[" ] str |> List.ofSeq
+        let numbers = split.[3]
+        let line = String.takeWhile (fun c -> c <> ',') numbers
+        int line
+
     member inline x.show =
         match x with
         | MultiplyDeclaredLocalVariable (token, scopeName) -> x.prefix token + "multiple declared local variable `" + scopeName + "`"
@@ -79,19 +87,27 @@ type SemanticError =
         | MultiplyDeclaredMemberFunction (token, scopeName) -> x.prefix token + "multiple declared member function `" + scopeName + "`"
         | MultiplyDeclaredClass (token) -> x.prefix token + "multiple declared class `" + token.lexeme + "`"
         | UndeclaredLocalVariable (token, scopeName) -> x.prefix token + "undeclared local variable `" + scopeName + "`"
-        | UndeclaredMemberVariable (token, scopeName) -> x.prefix token + "undeclared member variable `" + scopeName + "`"
-        | UndeclaredMemberFunction (token, scopeName) -> x.prefix token + "undeclared member function `" + scopeName + "`"
-        | UndeclaredClass (defToken) -> x.prefix defToken + "undeclared class `" + show defToken.lexeme + "`"
+        | UndeclaredMemberVariable (token, scopeName) -> x.prefix token + "undeclared member variable `" + token.lexeme + "` in class `" + scopeName + "`"
+        | UndeclaredMemberFunction (token, scopeName) -> x.prefix token + "undeclared member function `" + token.lexeme + "` in class `" + scopeName + "`"
+        | UndeclaredClass (defToken, className) -> x.prefix defToken + "undeclared class `" + className + "`"
+        | UndefinedMemberFunction (token, table) -> x.prefix token + "undefined member function `" + show table + "`"
+        | UndefinedFreeFunction (token) -> x.prefix token + "undefined free function `" + token.lexeme + "`"
         | TypeAssignmentMismatch (token, lhsName, rhsName) ->
             x.prefix token + "type assignment mismatch between `" + lhsName + "` and `" + rhsName + "`"
         | ArrayDimensionMismatch (defToken, declTable, defType) ->
             x.prefix defToken + "array used with wrong number of dimensions. `" + show (declTable.symbolType @! "") + "` is not compatible with `"
-            + String.replaceWith [ "[0]" ] [ "[]" ] (show defType) + "`"
+            + String.replaceWith [ "[-1]" ] [ "[]" ] (show defType) + "`"
         | ArrayIndexNonInteger (token, symbolType) -> x.prefix token + "array index invalid, expected integer but called with " + show symbolType
         | FunctionArityMismatch (token, declNumber, callNumber) ->
             x.prefix token + "function arity invalid, expected " + show declNumber + " but called with " + show callNumber + " parameter(s)"
         | FunctionParamTypeMismatch (token, declType, callType) ->
             x.prefix token + "function parameter type mismatch between declared type `" + show declType + "` and called type `" + show callType + "`"
+        | FunctionDeclarationMismatch (token, declTable, defTable) ->
+            x.prefix token + "function signature mismatch between declared function `" + show declTable + "` and defined function `" + show defTable
+            + "`"
+        | FunctionReturnTypeMismatch (token, returnTypeDecl, returnTypeDef) ->
+            x.prefix token + "function return type mismatch between declared type `" + returnTypeDecl + "` and detected type `" + returnTypeDef + "`"
+        | FunctionWithoutReturn (token) -> x.prefix token + "function return statement missing for " + token.lexeme
         | AddTypeInvalid (location, lhsType, rhsType) ->
             x.prefix location + "addition operation type invalid involving class types between `" + (lhsType.map show @? "<unresolved type>")
             + "` and `" + (rhsType.map show @? "<unresolved type>") + "`"
@@ -118,6 +134,19 @@ module Semanter =
             | [] ->
                 tree.root.syntaxToken
             | x :: _ -> firstToken x
+
+    module Helper =
+        let findByKind tables kind =
+            let founds =
+                List.fold (fun state item ->
+                    if item.kind = kind then item :: state else state) [] tables
+            List.tryHead founds
+
+        let findByName tables name =
+            let founds =
+                List.fold (fun state item ->
+                    if item.name.lexeme = name then item :: state else state) [] tables
+            List.tryHead founds
 
     module SymbolTableVisitor =
         let visit (table: SymbolTable) (tree: Tree<SymbolElement>) =
@@ -337,23 +366,65 @@ module Semanter =
                 for (i, errorAndTreePair) in List.indexed errorsAndTreePairs do
                     match i with
                     | 0 ->
-                        match List.tryItem 0 trees.[i].children with
-                        | None -> errors <- (fst errorAndTreePair) @ errors
-                        | Some idNode ->
-//                            let localTable, classTable, superTables = table.tryFindTables
-//                            let freeTable = table.tryFindTableWithNameAndKind idNode.root.syntaxToken.lexeme SymbolKindType.FreeFunction
+                        let firstChild = List.tryItem 0 tree.children
+                        let syntaxKind = firstChild.map (fun e -> e.root.syntaxElement.syntaxKind)
+                        match firstChild, syntaxKind with
+                        | Some idNode, Some FunctionCall ->
+                            let freeFunctionTables = table.freeFunctionTables
+                            let freeFunctionTable = Helper.findByName freeFunctionTables (Ast.firstToken idNode).lexeme
+                            match freeFunctionTable with
+                            | Some freeFunctionTable ->
+                                let idToFind = trees.[i].children.[0].root.syntaxToken.lexeme
+
+                                let symbolKindTypeToFind =
+                                    match trees.[i].root.syntaxElement.syntaxKind with
+                                    | FunctionCall -> SymbolKindType.MemberFunction
+                                    | _ -> SymbolKindType.Variable
+
+                                let idFinder state (item: SymbolTable) =
+                                    match item.name.lexeme = idToFind && item.kind.symbolKindType = symbolKindTypeToFind with
+                                    | true -> true
+                                    | false ->
+                                        if state = true then true else false
+
+                                let idFound = List.fold idFinder false freeFunctionTable.entries
+
+                                errors <- (fst errorAndTreePair) @ errors
+
+                                errors <-
+                                    List.filter (fun e ->
+                                        match e with
+                                        | UndeclaredLocalVariable _ -> false
+                                        | _ -> true) errors
+
+                                if idFound then
+                                    ()
+                                else
+                                    match symbolKindTypeToFind with
+                                    | SymbolKindType.Variable ->
+                                        errors <- UndeclaredMemberVariable(Ast.firstToken trees.[i], freeFunctionTable.name.lexeme) :: errors
+                                    | SymbolKindType.MemberFunction ->
+                                        errors <- UndeclaredMemberFunction(Ast.firstToken trees.[i], freeFunctionTable.name.lexeme) :: errors
+                                    | SymbolKindType.FreeFunction -> errors <- UndefinedFreeFunction(Ast.firstToken trees.[i]) :: errors
+                                    | _ -> ()
+                            | None -> errors <- UndefinedFreeFunction(Ast.firstToken tree) :: errors
+
                             errors <- (fst errorAndTreePair) @ errors
-                            ()
+                        | _ -> errors <- (fst errorAndTreePair) @ errors
                     | _ ->
                         let classInstance = trees.[i - 1]
-                        let classTable = table.tryFindTableWithNameAndKind (classInstance.root.symbolType.map(fun e -> e.className) @? "") SymbolKindType.Class
+                        let classTable =
+                            table.tryFindTableWithNameAndKind (classInstance.root.symbolType.map (fun e -> e.className) @? "") SymbolKindType.Class
+
                         match classTable with
                         | None -> ()
                         | Some classTable ->
                             let idToFind = trees.[i].children.[0].root.syntaxToken.lexeme
-                            let symbolKindTypeToFind = match trees.[i].root.syntaxElement.syntaxKind with
-                                                        | FunctionCall -> SymbolKindType.MemberFunction
-                                                        | _ -> SymbolKindType.Variable
+
+                            let symbolKindTypeToFind =
+                                match trees.[i].root.syntaxElement.syntaxKind with
+                                | FunctionCall -> SymbolKindType.MemberFunction
+                                | _ -> SymbolKindType.Variable
 
                             let idFinder state (item: SymbolTable) =
                                 match item.name.lexeme = idToFind && item.kind.symbolKindType = symbolKindTypeToFind with
@@ -365,14 +436,20 @@ module Semanter =
 
                             errors <- (fst errorAndTreePair) @ errors
 
-                            errors <- List.filter (fun e -> match e with | UndeclaredLocalVariable _ -> false | _ -> true) errors
+                            errors <-
+                                List.filter (fun e ->
+                                    match e with
+                                    | UndeclaredLocalVariable _ -> false
+                                    | _ -> true) errors
 
-                            if idFound
-                            then ()
+                            if idFound then
+                                ()
                             else
                                 match symbolKindTypeToFind with
-                                | SymbolKindType.Variable -> errors <- UndeclaredMemberVariable(Ast.firstToken trees.[i], (Ast.firstToken trees.[i]).lexeme) :: errors
-                                | SymbolKindType.MemberFunction -> errors <- UndeclaredMemberFunction(Ast.firstToken trees.[i], (Ast.firstToken trees.[i]).lexeme) :: errors
+                                | SymbolKindType.Variable ->
+                                    errors <- UndeclaredMemberVariable(Ast.firstToken trees.[i], classTable.name.lexeme) :: errors
+                                | SymbolKindType.MemberFunction ->
+                                    errors <- UndeclaredMemberFunction(Ast.firstToken trees.[i], classTable.name.lexeme) :: errors
                                 | SymbolKindType.FreeFunction -> errors <- UndefinedFreeFunction(Ast.firstToken trees.[i]) :: errors
                                 | _ -> ()
 
@@ -381,6 +458,20 @@ module Semanter =
                 match List.tryLast trees with
                 | Some lastTree -> errors, Tree.create { tree.root with symbolEntry = lastTree.root.symbolEntry } trees
                 | _ -> errors, tree
+
+            and varDecl (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
+                | Some (typeErrors, varType), Some (idErrors, varId) ->
+                    let errors = typeErrors @ idErrors
+                    let typeLexeme = varType.root.syntaxToken.lexeme
+
+                    match typeLexeme = "integer" || typeLexeme = "float" with
+                    | true -> errors, tree
+                    | false ->
+                        match Helper.findByName table.entries typeLexeme with
+                        | Some found -> errors, tree
+                        | None -> UndeclaredClass(Ast.firstToken varType, typeLexeme) :: errors, tree
+                | _ -> [], tree
 
             and assignStat (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
                 match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
@@ -450,6 +541,111 @@ module Semanter =
                     | _ -> errors, tree
                 | _ -> [], tree
 
+            and typee (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                match tree.root.syntaxElement.token with
+                | Some token ->
+                    let symbolType = SymbolType.create2 token.lexeme
+
+                    match symbolType with
+                    | SymbolType.Class _ ->
+                        let classes = table.classTables
+                        match List.tryFind (fun e -> e.name.lexeme = token.lexeme) classes with
+                        | Some found -> [], Tree.create { tree.root with symbolEntry = Some found } []
+                        | None -> [], tree
+                    | SymbolType.Integer _ ->
+                        [],
+                        Tree.create
+                            { tree.root with
+                                  symbolEntry =
+                                      Some
+                                          { SymbolTable.empty with
+                                                kind = SymbolKind.Variable symbolType
+                                                name =
+                                                    { tokenType = TokenType.Id "integer"
+                                                      location =
+                                                          { line = 0
+                                                            column = 0 } } } } []
+                    | SymbolType.Float _ ->
+                        [],
+                        Tree.create
+                            { tree.root with
+                                  symbolEntry =
+                                      Some
+                                          { SymbolTable.empty with
+                                                kind = SymbolKind.Variable symbolType
+                                                name =
+                                                    { tokenType = TokenType.Id "float"
+                                                      location =
+                                                          { line = 0
+                                                            column = 0 } } } } []
+                    | _ -> [], tree
+
+                | None -> [], tree
+
+            and returnStat (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                match (List.tryItem 0 tree.children).map visitor with
+                | Some (errors, expr) ->
+                    errors, Tree.create { tree.root with symbolEntry = expr.root.symbolEntry } [ expr ]
+                | None -> [], tree
+
+            and funcBody (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                let funcBodyEntryMapper tree =
+                    match tree.root.syntaxElement.syntaxKind with
+                    | VarDecl -> varDecl tree
+                    | _ -> visitor tree
+                //List.map funcBodyEntryMapper tree.children
+                let errorsAndTreePairs = List.map funcBodyEntryMapper tree.children
+                let errors = List.flatMap fst errorsAndTreePairs
+                let trees = List.map snd errorsAndTreePairs
+                errors, Tree.create tree.root trees
+
+            and funcDef (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor,
+                      (List.tryItem 2 tree.children).map visitor, (List.tryItem 3 tree.children).map visitor,
+                      (List.tryItem 4 tree.children).map funcBody with
+                | Some (errors1, scopeId), Some (errors2, functionId), Some (errors3, fParamList), Some (errors4, returnType),
+                  Some (errors5, funcBody) ->
+                    let classes = table.classTables
+                    let freeFunctions = table.freeFunctionTables
+                    let memberFunctions = table.memberFunctionTables
+
+                    let a = returnType
+                    let returnTypeSymbolType = returnType.root.symbolEntry.map (fun e -> show e.name.lexeme)
+
+                    //let funcBodyErrorsAndTreePairs = funcBody funcBodyUnvisited
+                    //let funcBodyErrors = List.flatMap fst funcBodyErrorsAndTreePairs
+                    let funcBodyEntries = funcBody.children //List.map snd funcBodyErrorsAndTreePairs
+                    let errors = errors1 @ errors2 @ errors3 @ errors4 @ errors5 //@ funcBodyErrors
+
+                    let returnEntry =
+                        List.tryFind (fun item ->
+                            match item.root.syntaxElement.syntaxKind with
+                            | ReturnStat -> true
+                            | _ -> false) funcBodyEntries
+                    match returnEntry with
+                    | Some returnEntry ->
+                        let returnEntryTypeStr = returnEntry.root.symbolEntry.map (fun e -> e.symbolType.map (fun ee -> show ee) @? "")
+                        let a = returnEntryTypeStr
+                        let b = returnTypeSymbolType
+                        match returnEntryTypeStr = returnTypeSymbolType with
+                        | true -> errors, tree
+                        | false ->
+                            FunctionReturnTypeMismatch
+                                (Ast.firstToken returnEntry, returnTypeSymbolType @? "<unresolved type>",
+                                 returnEntryTypeStr @? "<unresolved type>") :: errors, tree
+                    | None -> FunctionWithoutReturn(Ast.firstToken functionId) :: errors, tree
+                | _ -> [], tree
+
+            and mainFuncBody (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
+                let mainFuncBodyMapper tree =
+                    match tree.root.syntaxElement.syntaxKind with
+                    | VarDecl -> varDecl tree
+                    | _ -> visitor tree
+                let errorsAndTreePairs = List.map mainFuncBodyMapper tree.children
+                let trees = List.map snd errorsAndTreePairs
+                let errors = List.flatMap fst errorsAndTreePairs
+                errors, Tree.create tree.root trees
+
             and other (tree: Tree<SymbolElement>): SemanticError list * Tree<SymbolElement> =
                 let errorsAndTreePairs = List.map visitor tree.children
                 let trees = List.map snd errorsAndTreePairs
@@ -460,6 +656,7 @@ module Semanter =
                 tree
                 |> match tree.root.syntaxElement.syntaxKind with
                    | Num -> num
+                   | Type -> typee
                    | AddOp -> addOp
                    | MultOp -> multOp
                    | Not -> not
@@ -469,6 +666,9 @@ module Semanter =
                    | VarElementList -> varElementList
                    | AssignStat -> assignStat
                    | FunctionCall -> functionCall
+                   | ReturnStat -> returnStat
+                   | FuncDef -> funcDef
+                   | MainFuncBody -> mainFuncBody
                    | _ -> other
 
             visitor tree
@@ -524,7 +724,7 @@ module Semanter =
 
             let mapComparer (a: SymbolTable) (b: SymbolTable) =
                 if a.name.tokenType = b.name.tokenType
-                then Some(SemanticError.UndeclaredClass(a.name))
+                then Some(SemanticError.UndeclaredClass(a.name, a.name.lexeme))
                 else None
 
             let a = mapCompare mapComparer xs
@@ -561,10 +761,43 @@ module Semanter =
             @ List.flatMap (fun it -> List.flatMap duplicateErrorsOuterScope it) level3Scopes
 
         let checkUndefined (table: SymbolTable): SemanticError list =
+            let mutable errors = []
+            let classes = table.classTables
+            let freeFunctions = table.freeFunctionTables
+            let memberFunctions = table.memberFunctionTables
+
+            // checkUndefinedMemberFunctions
+            for clazz in classes do
+                for entry in clazz.entries do
+                    match entry.kind with
+                    | MemberFunction _ ->
+                        match Helper.findByName memberFunctions entry.name.lexeme with
+                        | Some found ->
+                            match found.kind = entry.kind with
+                            | true -> ()
+                            | false ->
+                                errors <- FunctionDeclarationMismatch(found.name, entry, found) :: errors
+                        | _ ->
+                            errors <- UndefinedMemberFunction(entry.name, entry) :: errors
+                    | _ -> ()
+
+            // checkUndeclaredClasses
+            for foo in memberFunctions do
+                match Helper.findByName classes foo.kind.className with
+                | Some found ->
+                    match Helper.findByName found.entries foo.name.lexeme with
+                    | Some memberFunctionNameFoundInClassDeclMemberFunctionList -> ()
+                    | None -> errors <- UndeclaredMemberFunction(foo.name, found.name.lexeme) :: errors
+                | None -> errors <- UndeclaredClass(foo.name, foo.kind.className) :: errors
+
+            errors
+
+        let checkUndeclared (table: SymbolTable): SemanticError list =
+
             []
 
         let visit (table: SymbolTable): SemanticError list =
-            checkMultiplyDeclared table |> (fun errors -> errors @ checkUndefined table)
+            checkMultiplyDeclared table @ checkUndefined table @ checkUndeclared table
 
     type MemoryElement =
         { tag: string
@@ -744,7 +977,6 @@ module Semanter =
         let visit (tree: Tree<SymbolElement>) =
             let mutable cf = CodeFactory.empty
 
-
             let rec num (tree: Tree<SymbolElement>) =
                 let me = cf.getOrAlloc tree
                 let r = cf.pop
@@ -769,7 +1001,29 @@ module Semanter =
                     cf.code ("putc", sprintf "%s" r)
                     cf.push r
                     expr
-                | _ -> failwith "CodeGeneratorVisitor.visit.writeStat: expected `Some expr` but was `None`"
+                | _ -> MemoryElement.empty
+
+            and readStat (tree: Tree<SymbolElement>) =
+                match (List.tryItem 0 tree.children).map visitor with
+                | Some variable ->
+                    let r = cf.pop
+
+                    // Get string from stdinput and store in buf by calling `getstr`
+                    cf.code ("addi", sprintf "%s,r0,buf" r, show tree)
+                    cf.code ("sw", sprintf "-8(r14),%s" r)
+                    cf.code ("jl", "r15,getstr")
+
+                    // Convert string stored in buffer to int by calling `strint`
+                    cf.code ("addi", sprintf "%s,r0,buf" r)
+                    cf.code ("sw", sprintf "-8(r14),%s" r)
+                    cf.code ("jl", "r15,strint")
+
+                    // Store int result stored in `r13`
+                    cf.code ("sw", sprintf "%s(r0),r13" variable.tag)
+
+                    cf.push r
+                    MemoryElement.empty
+                | _ -> MemoryElement.empty
 
             and dataMember (tree: Tree<SymbolElement>) =
                 cf.getOrAlloc tree
@@ -805,7 +1059,7 @@ module Semanter =
                         cf.push r1
                         me
                     | None -> me
-                | _ -> failwith "CodeGeneratorVisitor.visit.relExpr: expected `Some arithExpr, relOp, arithExpr` but was `None`"
+                | _ -> MemoryElement.empty
 
             and addOp (tree: Tree<SymbolElement>) =
                 match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
@@ -851,7 +1105,7 @@ module Semanter =
                         cf.push r1
                         me
                     | _ -> me
-                | _ -> failwith "CodeGeneratorVisitor.visit.addOp: expected `Some arithExpr, term` but was `None`"
+                | _ -> MemoryElement.empty
 
             and multOp (tree: Tree<SymbolElement>) =
                 match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
@@ -897,7 +1151,7 @@ module Semanter =
                         cf.push r1
                         me
                     | _ -> me
-                | _ -> failwith "CodeGeneratorVisitor.visit.multOp: expected `Some term, factor` but was `None`"
+                | _ -> MemoryElement.empty
 
             and sign (tree: Tree<SymbolElement>) =
                 match (List.tryItem 0 tree.children).map visitor with
@@ -920,7 +1174,7 @@ module Semanter =
                         cf.push r1
                         me
                     | None -> me
-                | _ -> failwith "CodeGeneratorVisitor.visit.sign: expected `Some factor` but was `None`"
+                | _ -> MemoryElement.empty
 
             and not (tree: Tree<SymbolElement>) =
                 match (List.tryItem 0 tree.children).map visitor with
@@ -937,7 +1191,7 @@ module Semanter =
                     cf.code (notzero, "sw", sprintf "%s(r0),r0" me.tag, "")
                     cf.code (endnot, "", "", "")
                     me
-                | _ -> failwith "CodeGeneratorVisitor.visit.not: expected `Some factor` but was `None`"
+                | _ -> MemoryElement.empty
 
             and assignStat (tree: Tree<SymbolElement>) =
                 match (List.tryItem 0 tree.children).map visitor, (List.tryItem 1 tree.children).map visitor with
@@ -947,7 +1201,51 @@ module Semanter =
                     cf.code ("sw", sprintf "%s(r0),%s" lhs.tag r)
                     cf.push r
                     lhs
-                | _ -> failwith "CodeGeneratorVisitor.visit.assignStat: expected `Some varElementList, expr` but was `None`"
+                | _ -> MemoryElement.empty
+
+            and statBlock (tree: Tree<SymbolElement>) =
+                List.map visitor tree.children |> ignore
+                MemoryElement.empty
+
+            and ifStat (tree: Tree<SymbolElement>) =
+                match (List.tryItem 0 tree.children).map visitor, List.tryItem 1 tree.children, List.tryItem 2 tree.children with
+                | Some relExpr, Some statBlock1, Some statBlock2 ->
+                    let me = cf.getOrAlloc tree
+                    let r1 = cf.pop
+                    let else1 = cf.makeLabel
+                    let endif1 = cf.makeLabel
+
+                    cf.code ("lw", sprintf "%s,%s(r0)" r1 relExpr.tag, show tree)
+                    cf.code ("bz", sprintf "%s,%s" r1 else1)
+                    visitor statBlock1 |> ignore
+                    cf.code ("j", sprintf "%s" endif1)
+                    cf.code (else1, "", "", "")
+                    visitor statBlock2 |> ignore
+                    cf.code (endif1, "", "", "")
+
+                    cf.push r1
+                    me
+                | _ -> MemoryElement.empty
+
+            and whileStat (tree: Tree<SymbolElement>) =
+                match List.tryItem 0 tree.children, List.tryItem 1 tree.children with
+                | Some relExpr, Some statBlock ->
+                    let me = cf.getOrAlloc tree
+                    let r1 = cf.pop
+                    let while1 = cf.makeLabel
+                    let endwhile1 = cf.makeLabel
+
+                    cf.code (while1, "", "", "")
+                    let relExpr = visitor relExpr
+                    cf.code ("lw", sprintf "%s,%s(r0)" r1 relExpr.tag, show tree)
+                    cf.code ("bz", sprintf "%s,%s" r1 endwhile1)
+                    visitor statBlock |> ignore
+                    cf.code ("j", sprintf "%s" while1)
+                    cf.code (endwhile1, "", "", "")
+
+                    cf.push r1
+                    me
+                | _ -> MemoryElement.empty
 
             and classDeclList (tree: Tree<SymbolElement>) =
                 let mes = List.map visitor tree.children
@@ -978,6 +1276,9 @@ module Semanter =
                 | ClassDeclList -> classDeclList tree
                 | FuncDefList -> funcDefList tree
                 | MainFuncBody -> mainFuncBody tree
+                | WhileStat -> whileStat tree
+                | IfStat -> ifStat tree
+                | StatBlock -> statBlock tree
                 | AssignStat -> assignStat tree
                 | VarElementList -> varElementList tree
                 | RelExpr -> relExpr tree
@@ -987,6 +1288,7 @@ module Semanter =
                 | Not -> not tree
                 | DataMember -> dataMember tree
                 | WriteStat -> writeStat tree
+                | ReadStat -> readStat tree
                 | Num -> num tree
                 | _ -> MemoryElement.empty
 
@@ -998,4 +1300,4 @@ module Semanter =
         SymbolTable.makeSymbolTableAndTree syntaxTree
         ||> SymbolTableVisitor.visit
         ||> (fun errors tree -> errors @ TypeCheckVisitor.visit tree, tree)
-        ||> (fun errors tree -> SymbolCheckVisitor.visit (tree.root.symbolEntry @? SymbolTable.empty) @ errors, tree)
+        ||> (fun errors tree ->  List.sortBy (fun (item: SemanticError) -> item.lineNumber) (SymbolCheckVisitor.visit (tree.root.symbolEntry @? SymbolTable.empty) @ errors), tree)
